@@ -1,0 +1,796 @@
+'use client'
+
+import { useState } from 'react'
+import { Factory, Package, Pencil, Sparkles, Store, Upload, X } from 'lucide-react'
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Field,
+  Input,
+  TableEmpty,
+  TableLoading,
+  Td,
+  Textarea,
+  Th,
+  formatDate,
+} from '@/components/admin/ui'
+import { useApiList } from '@/lib/use-api-list'
+import { addDuration, formatDuration, resolveWarrantyDuration, toDateString } from '@/lib/warranty'
+
+/** ที่มาของสินค้า — ตัดสินว่าใครเป็นคนออกรหัส SN (ดู db/schema.sql) */
+type SourceType = 'in_house' | 'resale'
+
+const SOURCE_TYPES: {
+  value: SourceType
+  label: string
+  hint: string
+  icon: typeof Factory
+}[] = [
+  {
+    value: 'in_house',
+    label: 'ผลิตเอง',
+    hint: 'เราออกรหัส SN เองที่หน้า "ตั้งค่ารหัส SN" แล้วค่อยผูกกับผลิตภัณฑ์ทีหลัง',
+    icon: Factory,
+  },
+  {
+    value: 'resale',
+    label: 'ซื้อมาขายต่อ',
+    hint: 'มี SN ติดมากับตัวสินค้าจากโรงงานเดิม วางเข้าระบบได้เลยตอนเพิ่มผลิตภัณฑ์',
+    icon: Store,
+  },
+]
+
+const SOURCE_LABEL: Record<SourceType, string> = {
+  in_house: 'ผลิตเอง',
+  resale: 'ซื้อมาขายต่อ',
+}
+
+type Product = {
+  id: number
+  name: string
+  code: string | null
+  brand: string | null
+  model: string | null
+  source_type: SourceType
+  warranty_years: number
+  warranty_months: number
+  warranty_days: number
+  warranty_start_date: string | null
+  warranty_end_date: string | null
+  warranty_text: string
+  is_active: number
+  created_at: string
+  serial_count: number
+}
+
+type ListResponse = { products: Product[] }
+
+const EMPTY_FORM = {
+  name: '',
+  code: '',
+  brand: '',
+  model: '',
+  // ตั้งต้นเป็นค่าว่าง = ยังไม่เลือก ฟอร์มที่เหลือจะยังไม่แสดงจนกว่าจะเลือกประเภทก่อน
+  source_type: '' as SourceType | '',
+  warranty_years: '1',
+  warranty_months: '0',
+  warranty_days: '0',
+  warranty_start_date: '',
+  warranty_end_date: '',
+  is_active: true,
+}
+
+export default function ProductsPage() {
+  const { data, loading, error: listError, reload } = useApiList<ListResponse>('/api/admin/products')
+  const products = data?.products ?? []
+
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Serial Number ของสินค้านอกที่มี SN ติดมาแล้ว — กรอกได้เลยตอนเพิ่มผลิตภัณฑ์ใหม่
+  // (ไม่ต้องกรอกก็ได้ ถ้าเป็นผลิตภัณฑ์ที่เราผลิตเอง แล้วค่อยไปผูก SN ทีหลัง)
+  const [createSnText, setCreateSnText] = useState('')
+  const [createSnCategory, setCreateSnCategory] = useState('')
+
+  const [addSnProduct, setAddSnProduct] = useState<Product | null>(null)
+  const [addSnText, setAddSnText] = useState('')
+  const [addSnCategory, setAddSnCategory] = useState('')
+  const [addingSn, setAddingSn] = useState(false)
+  const [addSnResult, setAddSnResult] = useState<{
+    imported: number
+    skipped: number
+    batch_id: string
+  } | null>(null)
+
+  function startCreate() {
+    setEditingId(null)
+    setForm(EMPTY_FORM)
+    setCreateSnText('')
+    setCreateSnCategory('')
+    setError('')
+    setSuccess('')
+  }
+
+  function startEdit(product: Product) {
+    setEditingId(product.id)
+    setForm({
+      name: product.name,
+      code: product.code ?? '',
+      brand: product.brand ?? '',
+      model: product.model ?? '',
+      source_type: product.source_type ?? 'in_house',
+      warranty_years: String(product.warranty_years),
+      warranty_months: String(product.warranty_months),
+      warranty_days: String(product.warranty_days),
+      warranty_start_date: product.warranty_start_date ?? '',
+      warranty_end_date: product.warranty_end_date ?? '',
+      is_active: product.is_active === 1,
+    })
+    setCreateSnText('')
+    setCreateSnCategory('')
+    setError('')
+    setSuccess('')
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+
+    // กันไว้อีกชั้น — ปุ่มบันทึกอยู่ในส่วนที่ซ่อนอยู่แล้วถ้ายังไม่เลือกประเภท
+    if (form.source_type === '') {
+      setError('กรุณาเลือกประเภทผลิตภัณฑ์ก่อน')
+      return
+    }
+
+    // สินค้าซื้อมาขายต่อที่กรอก SN มาด้วยตอนเพิ่มใหม่ — เช็คหมวดหมู่ให้ครบก่อนยิง API
+    // ผลิตเองไม่ส่ง SN ไม่ว่าช่องจะมีข้อความค้างอยู่หรือไม่ (เผื่อสลับประเภททีหลัง)
+    const isCreating = !editingId
+    const newProductSns =
+      isCreating && form.source_type === 'resale' ? parseManualSns(createSnText) : []
+    if (isCreating && newProductSns.length > 0 && !createSnCategory.trim()) {
+      setError('กรอก Serial Number แล้ว กรุณากรอกหมวดหมู่ด้วย')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const res = await fetch(
+        editingId ? `/api/admin/products/${editingId}` : '/api/admin/products',
+        {
+          method: editingId ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        }
+      )
+      const body = await res.json()
+      if (!res.ok) {
+        setError(body.error ?? 'บันทึกไม่สำเร็จ')
+        return
+      }
+
+      // ผูก SN ที่กรอกมาพร้อมกันตอนเพิ่มผลิตภัณฑ์ใหม่ — ไม่ต้องไปกด "เพิ่ม SN" แยกทีหลัง
+      if (isCreating && newProductSns.length > 0) {
+        const snRes = await fetch('/api/admin/sn/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            product_id: body.product.id,
+            sns: newProductSns,
+            category: createSnCategory,
+          }),
+        })
+        const snBody = await snRes.json()
+        if (!snRes.ok) {
+          setSuccess(`เพิ่มผลิตภัณฑ์ "${form.name}" เรียบร้อย แต่เพิ่ม Serial Number ไม่สำเร็จ: ${snBody.error ?? 'ไม่ทราบสาเหตุ'} — ลองกด "เพิ่ม SN" ที่แถวผลิตภัณฑ์นี้อีกครั้ง`)
+        } else {
+          setSuccess(
+            `เพิ่มผลิตภัณฑ์ "${form.name}" เรียบร้อย พร้อม Serial Number ${snBody.imported.toLocaleString('th-TH')} ตัว${
+              snBody.skipped > 0 ? ` (ข้าม ${snBody.skipped.toLocaleString('th-TH')} ตัวที่ซ้ำ)` : ''
+            }`
+          )
+        }
+      } else {
+        setSuccess(editingId ? 'แก้ไขผลิตภัณฑ์เรียบร้อย' : `เพิ่มผลิตภัณฑ์ "${form.name}" เรียบร้อย`)
+      }
+
+      setEditingId(null)
+      setForm(EMPTY_FORM)
+      setCreateSnText('')
+      setCreateSnCategory('')
+      reload()
+    } catch {
+      setError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleActive(product: Product) {
+    setError('')
+    setSuccess('')
+    const res = await fetch(`/api/admin/products/${product.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: product.name,
+        code: product.code ?? '',
+        brand: product.brand ?? '',
+        model: product.model ?? '',
+        warranty_years: product.warranty_years,
+        warranty_months: product.warranty_months,
+        warranty_days: product.warranty_days,
+        // ส่งช่วงวันเดิมกลับไปด้วย ไม่งั้นการสลับสถานะจะล้างค่าที่ตั้งไว้ทิ้ง
+        warranty_start_date: product.warranty_start_date ?? '',
+        warranty_end_date: product.warranty_end_date ?? '',
+        is_active: product.is_active !== 1,
+      }),
+    })
+    const body = await res.json()
+    if (!res.ok) {
+      setError(body.error ?? 'เปลี่ยนสถานะไม่สำเร็จ')
+      return
+    }
+    reload()
+  }
+
+  // แยก SN ที่วาง/พิมพ์เข้ามาด้วยขึ้นบรรทัดใหม่หรือจุลภาค แล้วตัดตัวซ้ำในชุดเดียวกันออก
+  function parseManualSns(text: string): string[] {
+    return [...new Set(text.split(/[\n,]+/).map((s) => s.trim().toUpperCase()).filter(Boolean))]
+  }
+
+  const addSnCount = parseManualSns(addSnText).length
+
+  function openAddSnModal(product: Product) {
+    setAddSnProduct(product)
+    setAddSnText('')
+    setAddSnCategory('')
+    setAddSnResult(null)
+    setError('')
+    setSuccess('')
+  }
+
+  async function confirmAddSn() {
+    if (!addSnProduct) return
+    const sns = parseManualSns(addSnText)
+    if (sns.length === 0) {
+      setError('กรุณากรอก Serial Number อย่างน้อย 1 รายการ')
+      return
+    }
+    if (!addSnCategory.trim()) {
+      setError('กรุณากรอกหมวดหมู่')
+      return
+    }
+    setError('')
+    setAddingSn(true)
+    try {
+      const res = await fetch('/api/admin/sn/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: addSnProduct.id, sns, category: addSnCategory }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setError(body.error ?? 'เพิ่ม SN ไม่สำเร็จ')
+        return
+      }
+      setAddSnResult(body)
+      setAddSnText('')
+      reload()
+    } catch {
+      setError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+    } finally {
+      setAddingSn(false)
+    }
+  }
+
+  const lockedCode =
+    editingId !== null && (products.find((p) => p.id === editingId)?.serial_count ?? 0) > 0
+
+  // แสดงผลลัพธ์ให้เห็นทันทีขณะกรอก โดยใช้ตรรกะเดียวกับฝั่งเซิร์ฟเวอร์
+  const manualDuration = {
+    years: Number(form.warranty_years) || 0,
+    months: Number(form.warranty_months) || 0,
+    days: Number(form.warranty_days) || 0,
+  }
+  // เลือกประเภทแล้วถึงจะโชว์ช่องกรอกที่เหลือ (ตอนแก้ไขมีค่าอยู่แล้ว จึงโชว์ทันที)
+  const formReady = form.source_type !== ''
+
+  // วาง SN ตอนสร้างได้เฉพาะสินค้าซื้อมาขายต่อ — ผลิตเองต้องออกรหัสจากหน้า Serial Number
+  const canPasteSn = !editingId && form.source_type === 'resale'
+
+  // กรอกช่วงวันครบทั้งคู่เมื่อไหร่ ช่วงวันจะเป็นตัวตั้งแทนช่อง ปี/เดือน/วัน ที่กรอกไว้
+  const bothDatesFilled = Boolean(form.warranty_start_date && form.warranty_end_date)
+  const invalidRange = bothDatesFilled && form.warranty_end_date < form.warranty_start_date
+  const fromDateRange = bothDatesFilled && !invalidRange
+  const duration = resolveWarrantyDuration(
+    manualDuration,
+    form.warranty_start_date || null,
+    form.warranty_end_date || null
+  )
+  const hasDuration = duration.years + duration.months + duration.days > 0
+  const preview = hasDuration ? formatDuration(duration) : 'ยังไม่ได้ระบุ'
+  // ช่วงวันตายตัวอยู่แล้ว ไม่ต้องเดาวันหมดประกันจากวันนี้
+  const previewEnd =
+    hasDuration && !fromDateRange ? toDateString(addDuration(new Date(), duration)) : null
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-navy-900">จัดการผลิตภัณฑ์</h1>
+        <p className="mt-0.5 text-sm text-navy-400">
+          เพิ่มและจัดการข้อมูลผลิตภัณฑ์ รหัสสินค้า ระยะเวลารับประกัน และสถานะการใช้งาน —
+          แยกประเภทได้ว่าเป็นสินค้าที่ผลิตเองหรือซื้อมาขายต่อ
+        </p>
+      </div>
+
+      {(error || listError) && <Alert tone="error">{error || listError}</Alert>}
+      {success && <Alert tone="success">{success}</Alert>}
+
+      <Card>
+        <CardHeader
+          title={editingId ? `แก้ไขผลิตภัณฑ์ #${editingId}` : 'เพิ่มข้อมูลผลิตภัณฑ์'}
+          action={
+            editingId && (
+              <Button variant="ghost" onClick={startCreate} disabled={saving}>
+                <X className="h-4 w-4" />
+                ยกเลิกการแก้ไข
+              </Button>
+            )
+          }
+        />
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* เลือกที่มาของสินค้าก่อนเป็นอย่างแรก เพราะเป็นตัวกำหนดว่าจะมีช่องกรอก SN ให้หรือไม่ */}
+          <Field
+            label="ประเภทผลิตภัณฑ์"
+            required
+            hint="เลือกว่าเป็นสินค้าที่เราผลิตเอง หรือซื้อมาจากที่อื่นแล้วขายต่อ — มีผลกับวิธีได้มาซึ่งรหัส Serial Number"
+          >
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {SOURCE_TYPES.map(({ value, label, hint, icon: Icon }) => {
+                const active = form.source_type === value
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setForm({ ...form, source_type: value })
+                      // สลับไปผลิตเอง = ไม่มีช่อง SN แล้ว ล้างที่ค้างไว้กันสับสน
+                      if (value === 'in_house') {
+                        setCreateSnText('')
+                        setCreateSnCategory('')
+                      }
+                    }}
+                    aria-pressed={active}
+                    className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition ${
+                      active
+                        ? 'border-brand-500 bg-brand-50/70 ring-1 ring-brand-300'
+                        : 'border-navy-100 bg-white hover:border-brand-200 hover:bg-brand-50/30'
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                        active ? 'bg-brand-600 text-white' : 'bg-navy-50 text-navy-400'
+                      }`}
+                    >
+                      <Icon className="h-4.5 w-4.5" strokeWidth={2} />
+                    </span>
+                    <span className="min-w-0">
+                      <span
+                        className={`block text-sm font-semibold ${
+                          active ? 'text-brand-800' : 'text-navy-700'
+                        }`}
+                      >
+                        {label}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-navy-400">
+                        {hint}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </Field>
+
+          {/* ยังไม่เลือกประเภท = ยังไม่ต้องโชว์ช่องกรอก ให้ตัดสินใจทีละขั้น */}
+          {!formReady && (
+            <p className="rounded-xl border border-dashed border-navy-200 bg-navy-50/40 px-4 py-7 text-center text-sm text-navy-400">
+              เลือกประเภทผลิตภัณฑ์ด้านบนก่อน แล้วช่องกรอกข้อมูลจะแสดงขึ้นมา
+            </p>
+          )}
+
+          {formReady && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="ชื่อผลิตภัณฑ์" required>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="เช่น สมาร์ททีวี 65 นิ้ว"
+                    maxLength={255}
+                    required
+                  />
+                </Field>
+
+                <Field label="ยี่ห้อ">
+                  <Input
+                    value={form.brand}
+                    onChange={(e) => setForm({ ...form, brand: e.target.value })}
+                    placeholder="ไม่บังคับ เช่น SmartHome"
+                    maxLength={100}
+                  />
+                </Field>
+
+                <Field
+                  label="รหัสผลิตภัณฑ์"
+                  hint={
+                    lockedCode
+                      ? 'แก้ไม่ได้ เพราะมี Serial Number ผูกกับผลิตภัณฑ์นี้อยู่แล้ว'
+                      : 'ไม่บังคับ — ถ้ากรอก ต้องเป็น A–Z และ 0–9 ยาว 2–10 ตัว ใช้เป็นรหัสอ้างอิงผลิตภัณฑ์ (ไม่เกี่ยวกับรหัส Serial Number)'
+                  }
+                >
+                  <Input
+                    value={form.code}
+                    onChange={(e) =>
+                      setForm({ ...form, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })
+                    }
+                    placeholder="ไม่บังคับ เช่น TV65"
+                    className="font-mono"
+                    maxLength={10}
+                    disabled={lockedCode}
+                  />
+                </Field>
+
+                <Field label="รุ่น">
+                  <Input
+                    value={form.model}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    placeholder="ไม่บังคับ เช่น ST-65A"
+                    maxLength={100}
+                  />
+                </Field>
+
+                {/* ผลิตเองไม่ต้องกรอก SN ตรงนี้ — ไปสร้างรหัสเองที่หน้า Serial Number แล้วค่อยผูกทีหลัง */}
+                {canPasteSn && (
+                  <Field
+                    label="Serial Number (ถ้ามี)"
+                    hint={`SN ที่ติดมากับตัวสินค้าจากโรงงานเดิม จะผูกกับผลิตภัณฑ์นี้ทันที (วางได้หลายบรรทัด)${
+                      createSnText ? ` — ตรวจพบ ${parseManualSns(createSnText).length.toLocaleString('th-TH')} รายการ` : ''
+                    }`}
+                  >
+                    <Textarea
+                      value={createSnText}
+                      onChange={(e) => setCreateSnText(e.target.value)}
+                      placeholder="เช่น EXT-SN-00123"
+                      rows={1}
+                      className="resize-y font-mono"
+                    />
+                  </Field>
+                )}
+
+                {canPasteSn && createSnText.trim() && (
+                  <Field label="หมวดหมู่ (SN)" required hint="เช่น เครื่องมือวินิจฉัย, อุปกรณ์ช่วยชีวิต">
+                    <Input
+                      value={createSnCategory}
+                      onChange={(e) => setCreateSnCategory(e.target.value)}
+                      placeholder="กรอกหมวดหมู่"
+                      maxLength={100}
+                    />
+                  </Field>
+                )}
+
+                {/* วันเริ่ม–วันสิ้นสุดอยู่ในช่องเดียวกัน ฝั่งเดียวของกริด แบ่งครึ่งเท่ากันข้างใน
+                    (แพตเทิร์นเดียวกับช่อง "ระยะประกัน" ที่ยัด 3 ช่องย่อยไว้ในเซลล์เดียว) */}
+                <Field
+                  label="ช่วงวันประกัน"
+                  hint="ไม่บังคับ — ช่องซ้ายวันเริ่ม ช่องขวาวันสิ้นสุด กรอกครบทั้งคู่แล้วระบบจะคำนวณระยะประกันให้อัตโนมัติ"
+                >
+                  {/* ไม่ใส่ label ย่อยเหนือ input เพราะจะดันให้ช่องนี้สูงกว่าช่องอื่นจนแถวไม่ตรงแนว */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={form.warranty_start_date}
+                      onChange={(e) => setForm({ ...form, warranty_start_date: e.target.value })}
+                      max="9999-12-31"
+                      className="min-w-0 px-2 text-sm"
+                    />
+                    <Input
+                      type="date"
+                      value={form.warranty_end_date}
+                      onChange={(e) => setForm({ ...form, warranty_end_date: e.target.value })}
+                      min={form.warranty_start_date || undefined}
+                      max="9999-12-31"
+                      className="min-w-0 px-2 text-sm"
+                    />
+                  </div>
+                </Field>
+
+                <Field
+                  label="ระยะประกัน"
+                  hint={
+                    fromDateRange
+                      ? 'คำนวณจากช่วงวันที่ด้านบนให้แล้ว — ล้างวันที่ออกถ้าต้องการกรอกเอง'
+                      : 'ไม่บังคับ — กรอกได้ทั้ง 3 หน่วย ระบบจะรวมเป็นระยะเวลาเดียว'
+                  }
+                >
+                  <div className="grid grid-cols-3 gap-2">
+                    <DurationInput
+                      label="ปี"
+                      max={50}
+                      value={fromDateRange ? String(duration.years) : form.warranty_years}
+                      onChange={(v) => setForm({ ...form, warranty_years: v })}
+                      disabled={fromDateRange}
+                    />
+                    <DurationInput
+                      label="เดือน"
+                      max={600}
+                      value={fromDateRange ? String(duration.months) : form.warranty_months}
+                      onChange={(v) => setForm({ ...form, warranty_months: v })}
+                      disabled={fromDateRange}
+                    />
+                    <DurationInput
+                      label="วัน"
+                      max={3650}
+                      value={fromDateRange ? String(duration.days) : form.warranty_days}
+                      onChange={(v) => setForm({ ...form, warranty_days: v })}
+                      disabled={fromDateRange}
+                    />
+                  </div>
+                </Field>
+              </div>
+
+              {invalidRange ? (
+                <Alert tone="warning">วันที่สิ้นสุดประกันต้องไม่ก่อนวันที่เริ่มประกัน</Alert>
+              ) : (
+                <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 text-sm">
+                  <span className="text-navy-500">ระยะประกันที่จะบันทึก: </span>
+                  <span className="font-semibold text-brand-700">{preview}</span>
+                  {fromDateRange && (
+                    <span className="text-navy-500">
+                      {' '}
+                      — คำนวณจาก {formatDate(form.warranty_start_date)} ถึง{' '}
+                      {formatDate(form.warranty_end_date)}
+                    </span>
+                  )}
+                  {previewEnd && (
+                    <span className="text-navy-500">
+                      {' '}
+                      — ถ้าลงทะเบียนวันนี้จะหมดประกัน {formatDate(previewEnd)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {editingId && (
+                <label className="flex items-center gap-2 text-sm text-navy-700">
+                  <input
+                    type="checkbox"
+                    checked={form.is_active}
+                    onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                    className="h-4 w-4 rounded border-navy-300 text-brand-600 focus:ring-brand-300"
+                  />
+                  เปิดใช้งาน (ลูกค้าเลือกได้ในหน้าลงทะเบียน)
+                </label>
+              )}
+
+              <Button type="submit" disabled={saving || invalidRange}>
+                <Sparkles className="h-4 w-4" />
+                {saving ? 'กำลังบันทึก…' : editingId ? 'บันทึกการแก้ไข' : 'เพิ่มผลิตภัณฑ์'}
+              </Button>
+            </>
+          )}
+        </form>
+      </Card>
+
+      <Card>
+        <CardHeader title={`ผลิตภัณฑ์ทั้งหมด (${products.length})`} />
+
+        <div className="scrollbar-thin -mx-6 overflow-x-auto px-6">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-navy-100">
+                <Th>ชื่อ</Th>
+                <Th>ประเภท</Th>
+                <Th>รหัส</Th>
+                <Th>ยี่ห้อ</Th>
+                <Th>รุ่น</Th>
+                <Th>ระยะประกัน</Th>
+                <Th>SN ที่สร้างแล้ว</Th>
+                <Th>สถานะ</Th>
+                <Th>จัดการ</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-navy-50">
+              {loading && <TableLoading colSpan={9} />}
+              {!loading && products.length === 0 && (
+                <TableEmpty colSpan={9}>
+                  <Package className="mx-auto mb-2 h-8 w-8 text-navy-200" strokeWidth={1.5} />
+                  ยังไม่มีผลิตภัณฑ์
+                </TableEmpty>
+              )}
+              {!loading &&
+                products.map((product) => (
+                  <tr key={product.id} className="transition hover:bg-brand-50/40">
+                    <Td>
+                      <div className="font-medium text-navy-900">{product.name}</div>
+                      <div className="text-xs text-navy-300">เพิ่มเมื่อ {formatDate(product.created_at)}</div>
+                    </Td>
+                    <Td>
+                      <Badge tone={product.source_type === 'resale' ? 'amber' : 'brand'}>
+                        {SOURCE_LABEL[product.source_type] ?? SOURCE_LABEL.in_house}
+                      </Badge>
+                    </Td>
+                    <Td className="font-mono">{product.code || <span className="text-navy-300">—</span>}</Td>
+                    <Td className="text-navy-500">{product.brand || '—'}</Td>
+                    <Td className="text-navy-500">{product.model || '—'}</Td>
+                    <Td className="whitespace-nowrap">
+                      {product.warranty_text}
+                      {product.warranty_start_date && product.warranty_end_date && (
+                        <div className="text-xs text-navy-300">
+                          {formatDate(product.warranty_start_date)} –{' '}
+                          {formatDate(product.warranty_end_date)}
+                        </div>
+                      )}
+                    </Td>
+                    <Td className="tabular">{Number(product.serial_count).toLocaleString('th-TH')}</Td>
+                    <Td>
+                      {product.is_active === 1 ? (
+                        <Badge tone="green">เปิดใช้งาน</Badge>
+                      ) : (
+                        <Badge tone="slate">ปิดใช้งาน</Badge>
+                      )}
+                    </Td>
+                    <Td>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={() => startEdit(product)}
+                          className="inline-flex items-center gap-1 font-medium text-brand-600 transition hover:text-brand-700"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          แก้ไข
+                        </button>
+                        {/* ผลิตเองไม่ต้องวาง SN จากภายนอก — ไปสร้างรหัสเองที่หน้า Serial Number */}
+                        {product.source_type === 'resale' && (
+                          <button
+                            onClick={() => openAddSnModal(product)}
+                            className="inline-flex items-center gap-1 font-medium text-brand-600 transition hover:text-brand-700"
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                            เพิ่ม SN
+                          </button>
+                        )}
+                        <button
+                          onClick={() => toggleActive(product)}
+                          className="font-medium text-navy-400 transition hover:text-navy-700"
+                        >
+                          {product.is_active === 1 ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-4 text-xs text-navy-400">
+          ผลิตภัณฑ์ที่มี SN ผูกอยู่แล้วจะลบไม่ได้ — ใช้ &ldquo;ปิดใช้งาน&rdquo; แทน
+          เพื่อซ่อนจากหน้าลงทะเบียนของลูกค้าโดยไม่กระทบข้อมูลเดิม
+        </p>
+      </Card>
+
+      {addSnProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/40 p-4"
+          onClick={() => !addingSn && setAddSnProduct(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-soft-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-navy-900">เพิ่ม SN ให้ &ldquo;{addSnProduct.name}&rdquo;</h3>
+            <p className="mt-1 text-sm text-navy-500">
+              สำหรับสินค้าที่ซื้อมาขายต่อ ซึ่งมี Serial Number ติดมากับตัวสินค้าจากโรงงานเดิมอยู่แล้ว —
+              กรอกหรือวางได้ทีละหลายรายการ
+            </p>
+
+            {error && (
+              <div className="mt-3">
+                <Alert tone="error">{error}</Alert>
+              </div>
+            )}
+
+            <div className="mt-4 space-y-4">
+              <Field
+                label="Serial Number"
+                required
+                hint={`วางหรือพิมพ์ทีละบรรทัด (หรือคั่นด้วยจุลภาค)${
+                  addSnText ? ` — ตรวจพบ ${addSnCount.toLocaleString('th-TH')} รายการ` : ''
+                }`}
+              >
+                <Textarea
+                  value={addSnText}
+                  onChange={(e) => setAddSnText(e.target.value)}
+                  placeholder={'เช่น\nEXT-SN-00123\nEXT-SN-00124'}
+                  rows={6}
+                  className="font-mono"
+                  disabled={addingSn}
+                  required
+                />
+              </Field>
+              <Field label="หมวดหมู่" required hint="เช่น เครื่องมือวินิจฉัย, อุปกรณ์ช่วยชีวิต">
+                <Input
+                  value={addSnCategory}
+                  onChange={(e) => setAddSnCategory(e.target.value)}
+                  placeholder="กรอกหมวดหมู่"
+                  maxLength={100}
+                  disabled={addingSn}
+                  required
+                />
+              </Field>
+            </div>
+
+            {addSnResult && (
+              <div className="mt-4">
+                <Alert tone="success">
+                  เพิ่มสำเร็จ {addSnResult.imported.toLocaleString('th-TH')} ตัว
+                  {addSnResult.skipped > 0 &&
+                    ` (ข้าม ${addSnResult.skipped.toLocaleString('th-TH')} ตัวที่ซ้ำกับที่มีอยู่แล้ว)`}
+                </Alert>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setAddSnProduct(null)} disabled={addingSn}>
+                ปิด
+              </Button>
+              <Button onClick={confirmAddSn} disabled={addingSn || addSnCount === 0}>
+                <Upload className="h-4 w-4" />
+                {addingSn ? 'กำลังเพิ่ม…' : `เพิ่ม SN (${addSnCount.toLocaleString('th-TH')})`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DurationInput({
+  label,
+  max,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string
+  max: number
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="relative">
+      <Input
+        type="number"
+        min={0}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="pr-12 text-right"
+      />
+      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-navy-300">
+        {label}
+      </span>
+    </div>
+  )
+}

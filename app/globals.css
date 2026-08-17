@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  /* Prompt โหลดผ่าน next/font/google ใน app/layout.tsx (ตัวแปร --font-prompt) — เหลือ fallback ไว้เผื่อโหลดไม่ทัน */
+  --font-sans: var(--font-prompt), "Noto Sans Thai", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+
+  /* โทนฟ้า — สีหลักของฝั่งแอดมิน (ตั้งใจเลือกให้หม่นกว่า sky/blue ปกติของ Tailwind) */
+  --color-brand-50: #f1f7fc;
+  --color-brand-100: #e1eef9;
+  --color-brand-200: #bfddf2;
+  --color-brand-300: #92c4e7;
+  --color-brand-400: #5fa4d8;
+  --color-brand-500: #3985c4;
+  --color-brand-600: #2b6aa3;
+  --color-brand-700: #235483;
+  --color-brand-800: #1e4468;
+  --color-brand-900: #1a3855;
+
+  /* โทนกรมท่า — ใช้แทน slate สำหรับกลาง/ตัวหนังสือ/เส้นขอบฝั่งแอดมิน ให้เข้าธีมฟ้า */
+  --color-navy-50: #f0f4f8;
+  --color-navy-100: #dde5ee;
+  --color-navy-200: #b9c8da;
+  --color-navy-300: #8ba2bd;
+  --color-navy-400: #5d7796;
+  --color-navy-500: #435c78;
+  --color-navy-600: #33475f;
+  --color-navy-700: #263548;
+  --color-navy-800: #182231;
+  --color-navy-900: #101823;
+
+  /* เงาโทนน้ำเงินหม่น (ไม่ใช้เงาดำ) ให้ความรู้สึกลึกแบบนุ่มนวล ไม่ใช่ glow แบบ AI ทั่วไป */
+  --shadow-soft: 0 1px 2px rgba(16, 35, 55, 0.06), 0 6px 16px -6px rgba(16, 35, 55, 0.12);
+  --shadow-soft-lg: 0 4px 8px rgba(16, 35, 55, 0.06), 0 24px 48px -16px rgba(16, 35, 55, 0.22);
+  --shadow-inner-soft: inset 0 1px 2px rgba(16, 35, 55, 0.06);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-900);
+  font-family: var(--font-sans);
+}
+
+/* พื้นหลังทั้งเว็บ (ลูกค้า + แอดมิน) — ฟ้าสีทะเลเป็นแสงนุ่ม ๆ มุมซ้ายบน/ขวาล่างเท่านั้น พื้นส่วนใหญ่ขาว */
+.bg-app-canvas {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(circle 650px at 0% 0%, #38bdf8 0%, rgba(56, 189, 248, 0) 100%),
+    radial-gradient(circle 650px at 100% 100%, #0ea5e9 0%, rgba(14, 165, 233, 0) 100%);
+  background-attachment: fixed;
+}
+
+/* ตัวเลข/SN อ่านง่ายขึ้นเมื่อเรียงเป็นคอลัมน์ */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* แถบสกอลล์บาร์บาง ๆ โทนฟ้า สำหรับ sidebar และตารางที่ overflow */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-navy-600) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--color-navy-600);
+  border-radius: 999px;
+}
