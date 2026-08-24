@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Pencil, Sparkles, X } from 'lucide-react'
+import { Pencil, Sparkles, Trash2, X } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -25,11 +25,18 @@ type Scheme = {
   model_code: string
   next_sequence: number
   sn_count: number
+  /** SN ที่ยังไม่ผูกผลิตภัณฑ์ ไม่มีใครลงทะเบียน และไม่ถูก void — ลบพร้อมรูปแบบได้ */
+  unused_sn_count: number
 }
 
 type ListResponse = { schemes: Scheme[] }
 
 const EMPTY_FORM = { label: '', prefix: '', model_code: '', next_sequence: '1' }
+
+/** SN ที่ถูกใช้ไปแล้ว — มีแม้ตัวเดียวก็ลบรูปแบบไม่ได้ */
+function usedSnCount(scheme: Scheme): number {
+  return scheme.sn_count - scheme.unused_sn_count
+}
 
 export default function SnSetupPage() {
   const { data, loading, error: listError, reload } = useApiList<ListResponse>('/api/admin/sn-setup')
@@ -40,6 +47,8 @@ export default function SnSetupPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Scheme | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   function startCreate() {
     setEditingId(null)
@@ -84,6 +93,37 @@ export default function SnSetupPage() {
       setError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setError('')
+    setSuccess('')
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/sn-setup?id=${deleteTarget.id}`, { method: 'DELETE' })
+      const body = await res.json()
+      if (!res.ok) {
+        setError(body.error ?? 'ลบไม่สำเร็จ')
+        return
+      }
+      const deletedSn = Number(body.deleted_sn) || 0
+      setSuccess(
+        `ลบรูปแบบ "${deleteTarget.label}" เรียบร้อย` +
+          (deletedSn > 0 ? ` พร้อม SN ที่ยังไม่ถูกใช้ ${deletedSn.toLocaleString('th-TH')} ตัว` : '')
+      )
+      // ถ้ากำลังแก้ไขแถวที่เพิ่งลบอยู่ ต้องเคลียร์ฟอร์มกลับเป็นโหมดสร้างใหม่
+      if (editingId === deleteTarget.id) {
+        setEditingId(null)
+        setForm(EMPTY_FORM)
+      }
+      setDeleteTarget(null)
+      reload()
+    } catch {
+      setError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -242,10 +282,25 @@ export default function SnSetupPage() {
                       )}
                     </Td>
                     <Td>
-                      <Button variant="secondary" onClick={() => startEdit(s)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                        แก้ไข
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="secondary" onClick={() => startEdit(s)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                          แก้ไข
+                        </Button>
+                        <Button
+                          variant="danger"
+                          onClick={() => setDeleteTarget(s)}
+                          disabled={usedSnCount(s) > 0}
+                          title={
+                            usedSnCount(s) > 0
+                              ? `รูปแบบนี้มี SN ที่ถูกใช้งานแล้ว ${usedSnCount(s).toLocaleString('th-TH')} ตัว จึงลบไม่ได้`
+                              : 'ลบรูปแบบนี้'
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          ลบ
+                        </Button>
+                      </div>
                     </Td>
                   </tr>
                 ))}
@@ -253,6 +308,52 @@ export default function SnSetupPage() {
           </table>
         </div>
       </Card>
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/40 p-4"
+          onClick={() => !deleting && setDeleteTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-soft-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-navy-900">
+              ลบรูปแบบ &ldquo;{deleteTarget.label}&rdquo;?
+            </h3>
+            <p className="mt-1 text-sm leading-relaxed text-navy-500">
+              รูปแบบ{' '}
+              <span className="font-mono font-semibold text-navy-700">
+                {deleteTarget.prefix}
+                {deleteTarget.model_code}
+              </span>{' '}
+              จะถูกลบถาวรและกู้คืนไม่ได้
+            </p>
+
+            {deleteTarget.unused_sn_count > 0 && (
+              <div className="mt-3">
+                <Alert tone="warning">
+                  SN ที่สร้างจากรูปแบบนี้และยังไม่ถูกใช้อีก{' '}
+                  <span className="font-semibold">
+                    {deleteTarget.unused_sn_count.toLocaleString('th-TH')} ตัว
+                  </span>{' '}
+                  จะถูกลบไปพร้อมกัน (ทั้งหมดยังไม่ผูกผลิตภัณฑ์และยังไม่มีใครลงทะเบียน)
+                </Alert>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                ยกเลิก
+              </Button>
+              <Button variant="danger" onClick={confirmDelete} disabled={deleting}>
+                <Trash2 className="h-4 w-4" />
+                {deleting ? 'กำลังลบ…' : 'ลบรูปแบบ'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -5,7 +5,9 @@ import path from 'node:path'
 import mysql from 'mysql2/promise'
 import bcrypt from 'bcryptjs'
 
-const DB_NAME = process.env.DB_NAME || 'warranty_db'
+// ห้ามมี fallback ชื่อ DB ตรงนี้ — เคยเป็น `|| 'warranty_db'` ซึ่งแปลว่าถ้าลืมส่ง --env-file
+// สคริปต์จะเงียบ ๆ ไปลงมือกับฐานข้อมูลตัวจริง ต้องบังคับให้ระบุมาเสมอ
+const DB_NAME = process.env.DB_NAME
 
 const connectionConfig = {
   host: process.env.DB_HOST || '127.0.0.1',
@@ -60,6 +62,17 @@ const MIGRATIONS = [
 ]
 
 async function main() {
+  if (!DB_NAME) {
+    throw new Error(
+      'ไม่ได้ตั้งค่า DB_NAME — สั่งด้วย `node --env-file=.env.local scripts/init-db.mjs` ' +
+        '(หรือ .env.test สำหรับฐานข้อมูลทดสอบ)'
+    )
+  }
+  // ชื่อ DB ถูกแปะลง SQL ตรง ๆ ด้านล่าง (placeholder ใช้กับ CREATE DATABASE ไม่ได้) จึงต้องจำกัดรูปแบบก่อน
+  if (!/^[A-Za-z0-9_]+$/.test(DB_NAME)) {
+    throw new Error(`DB_NAME "${DB_NAME}" ใช้ไม่ได้ — ต้องเป็น A–Z a–z 0–9 และ _ เท่านั้น`)
+  }
+
   const conn = await mysql.createConnection(connectionConfig)
 
   await conn.query(
@@ -75,12 +88,13 @@ async function main() {
   for (const sql of MIGRATIONS) await conn.query(sql)
   console.log('✓ อัปเดตโครงสร้างตารางเป็นเวอร์ชันล่าสุด')
 
-  // ไม่แตะระยะประกันของผลิตภัณฑ์ที่มีอยู่แล้ว เพราะแอดมินอาจแก้ไว้เอง
+  // INSERT IGNORE — seed เฉพาะตอนยังไม่มี code นั้น ห้ามแตะแถวที่มีอยู่แล้วเด็ดขาด
+  // ของเดิมใช้ ON DUPLICATE KEY UPDATE name/brand/model ซึ่งทำให้การรัน db:init
+  // ย้อนชื่อ/แบรนด์/รุ่นที่แอดมินแก้ไว้เองกลับเป็นค่า seed โดยไม่มีใครสังเกต
   for (const p of SEED_PRODUCTS) {
     await conn.execute(
-      `INSERT INTO products (name, code, brand, model, warranty_years, warranty_months, warranty_days)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE name = VALUES(name), brand = VALUES(brand), model = VALUES(model)`,
+      `INSERT IGNORE INTO products (name, code, brand, model, warranty_years, warranty_months, warranty_days)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [p.name, p.code, p.brand, p.model, p.years, p.months, p.days]
     )
   }

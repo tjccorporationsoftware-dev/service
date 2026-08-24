@@ -7,14 +7,21 @@ export type SqlParams = ExecuteValues[]
 // เก็บ pool ไว้บน globalThis เพื่อไม่ให้ HMR ตอน dev สร้าง pool ใหม่ทุกครั้ง
 const globalForDb = globalThis as unknown as { warrantyPool?: mysql.Pool }
 
+const dbConfig = {
+  host: process.env.DB_HOST || '127.0.0.1',
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'warranty_db',
+}
+
+/** ปลายทางที่ pool นี้ต่ออยู่ (ไม่มีรหัสผ่าน) — ใช้พิมพ์ log ตอน boot ใน instrumentation.ts */
+export const dbTarget = `${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`
+
 export const pool =
   globalForDb.warrantyPool ??
   mysql.createPool({
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'warranty_db',
+    ...dbConfig,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
