@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Factory, Package, Pencil, Sparkles, Store, Upload, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import Link from 'next/link'
+import { Factory, Link2, Package, Pencil, Sparkles, Store, Upload, X } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -42,6 +43,9 @@ const SOURCE_TYPES: {
     icon: Store,
   },
 ]
+
+/** เพดานเดียวกับ snAssignProductSchema ใน lib/validations.ts */
+const SN_ASSIGN_LIMIT = 500
 
 const SOURCE_LABEL: Record<SourceType, string> = {
   in_house: 'ผลิตเอง',
@@ -98,6 +102,11 @@ export default function ProductsPage() {
   const [createSnText, setCreateSnText] = useState('')
   const [createSnCategory, setCreateSnCategory] = useState('')
 
+  // ผลิตเอง: เลือก SN ที่สร้างไว้แล้วจากหน้า Serial Number แต่ยังไม่ได้ผูกผลิตภัณฑ์ มาเชื่อมกับผลิตภัณฑ์นี้
+  // snPickerKey บวกหลังบันทึกเพื่อ remount ตัวเลือก ให้ดึงรายการ SN ที่ว่างอยู่ใหม่
+  const [linkSnIds, setLinkSnIds] = useState<Set<number>>(new Set())
+  const [snPickerKey, setSnPickerKey] = useState(0)
+
   const [addSnProduct, setAddSnProduct] = useState<Product | null>(null)
   const [addSnText, setAddSnText] = useState('')
   const [addSnCategory, setAddSnCategory] = useState('')
@@ -113,6 +122,7 @@ export default function ProductsPage() {
     setForm(EMPTY_FORM)
     setCreateSnText('')
     setCreateSnCategory('')
+    setLinkSnIds(new Set())
     setError('')
     setSuccess('')
   }
@@ -134,6 +144,7 @@ export default function ProductsPage() {
     })
     setCreateSnText('')
     setCreateSnCategory('')
+    setLinkSnIds(new Set())
     setError('')
     setSuccess('')
   }
@@ -159,6 +170,19 @@ export default function ProductsPage() {
       return
     }
 
+    // SN ที่เลือกไว้จะถูกผูกหลังบันทึกผลิตภัณฑ์เสร็จ — ผลิตเองเท่านั้น (เผื่อสลับประเภทหลังเลือกไปแล้ว)
+    const snIdsToLink = form.source_type === 'in_house' ? [...linkSnIds] : []
+    // /api/admin/sn/assign-product รับเฉพาะผลิตภัณฑ์ที่เปิดใช้งาน — บอกให้รู้ตั้งแต่ก่อนยิง
+    if (snIdsToLink.length > 0 && !form.is_active) {
+      setError('ผลิตภัณฑ์ที่ปิดใช้งานอยู่เชื่อม Serial Number ไม่ได้ — เปิดใช้งานก่อนแล้วลองใหม่')
+      return
+    }
+    // เพดานเดียวกับ snAssignProductSchema — กันไว้ก่อนบันทึก จะได้ไม่เสียเที่ยวหลังผลิตภัณฑ์ถูกสร้างไปแล้ว
+    if (snIdsToLink.length > SN_ASSIGN_LIMIT) {
+      setError(`เชื่อม Serial Number ได้สูงสุด ${SN_ASSIGN_LIMIT} ตัวต่อครั้ง — เลือกไว้ ${snIdsToLink.length} ตัว`)
+      return
+    }
+
     setSaving(true)
     try {
       const res = await fetch(
@@ -175,6 +199,10 @@ export default function ProductsPage() {
         return
       }
 
+      let message = editingId
+        ? 'แก้ไขผลิตภัณฑ์เรียบร้อย'
+        : `เพิ่มผลิตภัณฑ์ "${form.name}" เรียบร้อย`
+
       // ผูก SN ที่กรอกมาพร้อมกันตอนเพิ่มผลิตภัณฑ์ใหม่ — ไม่ต้องไปกด "เพิ่ม SN" แยกทีหลัง
       if (isCreating && newProductSns.length > 0) {
         const snRes = await fetch('/api/admin/sn/import', {
@@ -188,22 +216,43 @@ export default function ProductsPage() {
         })
         const snBody = await snRes.json()
         if (!snRes.ok) {
-          setSuccess(`เพิ่มผลิตภัณฑ์ "${form.name}" เรียบร้อย แต่เพิ่ม Serial Number ไม่สำเร็จ: ${snBody.error ?? 'ไม่ทราบสาเหตุ'} — ลองกด "เพิ่ม SN" ที่แถวผลิตภัณฑ์นี้อีกครั้ง`)
+          message += ` แต่เพิ่ม Serial Number ไม่สำเร็จ: ${snBody.error ?? 'ไม่ทราบสาเหตุ'} — ลองกด "เพิ่ม SN" ที่แถวผลิตภัณฑ์นี้อีกครั้ง`
         } else {
-          setSuccess(
-            `เพิ่มผลิตภัณฑ์ "${form.name}" เรียบร้อย พร้อม Serial Number ${snBody.imported.toLocaleString('th-TH')} ตัว${
-              snBody.skipped > 0 ? ` (ข้าม ${snBody.skipped.toLocaleString('th-TH')} ตัวที่ซ้ำ)` : ''
-            }`
-          )
+          message += ` พร้อม Serial Number ${snBody.imported.toLocaleString('th-TH')} ตัว${
+            snBody.skipped > 0 ? ` (ข้าม ${snBody.skipped.toLocaleString('th-TH')} ตัวที่ซ้ำ)` : ''
+          }`
         }
-      } else {
-        setSuccess(editingId ? 'แก้ไขผลิตภัณฑ์เรียบร้อย' : `เพิ่มผลิตภัณฑ์ "${form.name}" เรียบร้อย`)
       }
 
+      // ผลิตเอง: ผูก SN ที่เลือกจากรายการ SN ว่าง — ทำได้ทั้งตอนเพิ่มใหม่และตอนแก้ไข
+      if (snIdsToLink.length > 0) {
+        const assignRes = await fetch('/api/admin/sn/assign-product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            product_id: editingId ?? body.product.id,
+            serial_number_ids: snIdsToLink,
+          }),
+        })
+        const assignBody = await assignRes.json()
+        if (!assignRes.ok) {
+          message += ` แต่เชื่อม Serial Number ไม่สำเร็จ: ${assignBody.error ?? 'ไม่ทราบสาเหตุ'}`
+        } else {
+          message += ` พร้อมเชื่อม Serial Number ${Number(assignBody.assigned).toLocaleString('th-TH')} ตัว${
+            assignBody.skipped > 0
+              ? ` (ข้าม ${Number(assignBody.skipped).toLocaleString('th-TH')} ตัวที่ถูกผูกไปก่อนแล้ว)`
+              : ''
+          }`
+        }
+      }
+
+      setSuccess(message)
       setEditingId(null)
       setForm(EMPTY_FORM)
       setCreateSnText('')
       setCreateSnCategory('')
+      setLinkSnIds(new Set())
+      setSnPickerKey((k) => k + 1)
       reload()
     } catch {
       setError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
@@ -305,6 +354,9 @@ export default function ProductsPage() {
   // วาง SN ตอนสร้างได้เฉพาะสินค้าซื้อมาขายต่อ — ผลิตเองต้องออกรหัสจากหน้า Serial Number
   const canPasteSn = !editingId && form.source_type === 'resale'
 
+  // ผลิตเองเลือก SN ที่ออกรหัสไว้แล้วมาเชื่อมได้ ทั้งตอนเพิ่มใหม่และตอนแก้ไข
+  const canLinkSn = form.source_type === 'in_house'
+
   // กรอกช่วงวันครบทั้งคู่เมื่อไหร่ ช่วงวันจะเป็นตัวตั้งแทนช่อง ปี/เดือน/วัน ที่กรอกไว้
   const bothDatesFilled = Boolean(form.warranty_start_date && form.warranty_end_date)
   const invalidRange = bothDatesFilled && form.warranty_end_date < form.warranty_start_date
@@ -362,10 +414,12 @@ export default function ProductsPage() {
                     type="button"
                     onClick={() => {
                       setForm({ ...form, source_type: value })
-                      // สลับไปผลิตเอง = ไม่มีช่อง SN แล้ว ล้างที่ค้างไว้กันสับสน
+                      // สลับประเภทแล้วช่อง SN ของอีกฝั่งจะหายไป ล้างที่ค้างไว้กันสับสน
                       if (value === 'in_house') {
                         setCreateSnText('')
                         setCreateSnCategory('')
+                      } else {
+                        setLinkSnIds(new Set())
                       }
                     }}
                     aria-pressed={active}
@@ -567,6 +621,16 @@ export default function ProductsPage() {
                     </span>
                   )}
                 </div>
+              )}
+
+              {/* ผลิตเองออกรหัส SN ไว้ก่อนโดยยังไม่มีเจ้าของ — ตรงนี้คือจุดที่จับคู่เข้ากับผลิตภัณฑ์ */}
+              {canLinkSn && (
+                <SnLinkField
+                  key={snPickerKey}
+                  selected={linkSnIds}
+                  onChange={setLinkSnIds}
+                  disabled={saving}
+                />
               )}
 
               {editingId && (
@@ -790,6 +854,164 @@ function DurationInput({
       />
       <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-navy-300">
         {label}
+      </span>
+    </div>
+  )
+}
+
+type AvailableSn = {
+  id: number
+  sn: string
+  category: string | null
+  created_at: string
+}
+
+type AvailableSnResponse = {
+  serials: AvailableSn[]
+  meta: { total: number }
+}
+
+/** ดึงมาทีละชุด (เพดานของ parsePagination คือ 200) ที่เหลือให้ใช้ช่องค้นหาแคบลงเอา */
+const SN_PICK_LIMIT = 200
+
+/**
+ * เลือก SN ที่ออกรหัสไว้แล้วจากหน้า Serial Number แต่ยังไม่ได้ผูกผลิตภัณฑ์ มาเชื่อมกับผลิตภัณฑ์ที่กำลังบันทึก
+ *
+ * แยกเป็นคอมโพเนนต์ลูกเพื่อให้ยิง API เฉพาะตอนโผล่จริง (เลือกประเภท "ผลิตเอง" แล้ว)
+ * ตัวที่เลือกไว้เก็บที่แม่ เพราะต้องส่งต่อให้ handleSubmit หลังบันทึกผลิตภัณฑ์เสร็จ
+ */
+function SnLinkField({
+  selected,
+  onChange,
+  disabled,
+}: {
+  selected: Set<number>
+  onChange: (next: Set<number>) => void
+  disabled?: boolean
+}) {
+  const [search, setSearch] = useState('')
+
+  const url = useMemo(() => {
+    const params = new URLSearchParams({
+      status: 'available',
+      product_id: 'unassigned',
+      per_page: String(SN_PICK_LIMIT),
+    })
+    if (search) params.set('search', search)
+    return `/api/admin/sn?${params}`
+  }, [search])
+
+  const { data, loading, error } = useApiList<AvailableSnResponse>(url)
+  const serials = data?.serials ?? []
+  const total = data?.meta.total ?? 0
+
+  const allShownSelected = serials.length > 0 && serials.every((s) => selected.has(s.id))
+
+  function toggleOne(id: number) {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onChange(next)
+  }
+
+  function toggleAllShown() {
+    const next = new Set(selected)
+    // เลือก/ยกเลิกเฉพาะตัวที่แสดงอยู่ ไม่แตะตัวที่เลือกไว้จากผลค้นหาชุดก่อน
+    for (const s of serials) {
+      if (allShownSelected) next.delete(s.id)
+      else next.add(s.id)
+    }
+    onChange(next)
+  }
+
+  return (
+    <div className="block">
+      <span className="mb-1.5 block text-sm font-medium text-navy-700">เชื่อม Serial Number</span>
+
+      <div className="rounded-xl border border-navy-200">
+        <div className="flex flex-wrap items-center gap-2 border-b border-navy-100 p-2.5">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value.toUpperCase())}
+            placeholder="ค้นหาด้วย SN…"
+            className="min-w-0 flex-1 font-mono"
+            disabled={disabled}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={toggleAllShown}
+            disabled={disabled || serials.length === 0}
+          >
+            {allShownSelected ? 'ล้างที่แสดงอยู่' : 'เลือกทั้งหมดที่แสดง'}
+          </Button>
+        </div>
+
+        {error && (
+          <p className="px-3.5 py-3 text-sm text-rose-700">{error}</p>
+        )}
+
+        {!error && (
+          <div className="scrollbar-thin max-h-56 divide-y divide-navy-50 overflow-y-auto">
+            {loading && <p className="px-3.5 py-6 text-center text-sm text-navy-400">กำลังโหลด…</p>}
+
+            {!loading && serials.length === 0 && (
+              <p className="px-3.5 py-6 text-center text-sm text-navy-400">
+                {search ? 'ไม่พบ SN ว่างที่ตรงกับคำค้น' : 'ยังไม่มี SN ว่างให้เชื่อม — ไปสร้างที่หน้า Serial Number ก่อน'}
+              </p>
+            )}
+
+            {!loading &&
+              serials.map((s) => (
+                <label
+                  key={s.id}
+                  className="flex cursor-pointer items-center gap-3 px-3.5 py-2 transition hover:bg-brand-50/40"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(s.id)}
+                    onChange={() => toggleOne(s.id)}
+                    disabled={disabled}
+                    className="h-4 w-4 rounded border-navy-300 text-brand-600 focus:ring-brand-300"
+                  />
+                  <span className="flex-1 font-mono text-sm text-navy-800">{s.sn}</span>
+                  {s.category && <Badge tone="slate">{s.category}</Badge>}
+                  <span className="text-xs text-navy-300">{formatDate(s.created_at)}</span>
+                </label>
+              ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-navy-100 px-3.5 py-2 text-xs text-navy-400">
+          <span>
+            {total > SN_PICK_LIMIT
+              ? `แสดง ${SN_PICK_LIMIT.toLocaleString('th-TH')} ตัวแรกจาก ${total.toLocaleString('th-TH')} ตัวที่ว่างอยู่ — ใช้ช่องค้นหาเพื่อจำกัดผลลัพธ์`
+              : `SN ว่างทั้งหมด ${total.toLocaleString('th-TH')} ตัว`}
+          </span>
+          {selected.size > 0 && (
+            <span className="inline-flex items-center gap-1.5 font-medium text-brand-700">
+              <Link2 className="h-3.5 w-3.5" />
+              เลือกไว้ {selected.size.toLocaleString('th-TH')} ตัว
+              <button
+                type="button"
+                onClick={() => onChange(new Set())}
+                disabled={disabled}
+                className="ml-1 font-medium text-navy-400 transition hover:text-navy-700"
+              >
+                ล้างทั้งหมด
+              </button>
+            </span>
+          )}
+        </div>
+      </div>
+
+      <span className="mt-1.5 block text-xs leading-relaxed text-navy-400">
+        ไม่บังคับ — เลือก SN ที่สร้างไว้แล้วและยังไม่ได้ผูกกับผลิตภัณฑ์ใด มาเชื่อมกับผลิตภัณฑ์นี้ตอนกดบันทึก
+        (สร้าง SN ใหม่ได้ที่หน้า{' '}
+        <Link href="/admin/serial-numbers" className="font-medium text-brand-600 hover:underline">
+          Serial Number
+        </Link>
+        )
       </span>
     </div>
   )
