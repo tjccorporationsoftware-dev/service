@@ -44,12 +44,13 @@ body {
   font-family: var(--font-sans);
 }
 
-/* พื้นหลังทั้งเว็บ (ลูกค้า + แอดมิน) — ฟ้าสีทะเลเป็นแสงนุ่ม ๆ มุมซ้ายบน/ขวาล่างเท่านั้น พื้นส่วนใหญ่ขาว */
+/* พื้นหลังทั้งเว็บ (ลูกค้า + แอดมิน) — แสงนุ่ม ๆ สีแบรนด์ที่มุมซ้ายบน/ขวาล่างเท่านั้น พื้นส่วนใหญ่ขาว
+   อ้าง --color-brand-* (ไม่ฝัง hex) เพื่อให้เปลี่ยนตาม BRAND_COLOR_PRIMARY ของแต่ละชุด deploy — ดู lib/brand.ts */
 .bg-app-canvas {
   background-color: #ffffff;
   background-image:
-    radial-gradient(circle 650px at 0% 0%, #38bdf8 0%, rgba(56, 189, 248, 0) 100%),
-    radial-gradient(circle 650px at 100% 100%, #0ea5e9 0%, rgba(14, 165, 233, 0) 100%);
+    radial-gradient(circle 650px at 0% 0%, var(--color-brand-400) 0%, transparent 100%),
+    radial-gradient(circle 650px at 100% 100%, var(--color-brand-500) 0%, transparent 100%);
   background-attachment: fixed;
 }
 

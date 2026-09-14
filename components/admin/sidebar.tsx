@@ -49,7 +49,7 @@ export function AdminShell({ session, children }: { session: Session; children: 
           <Menu className="h-5 w-5" />
         </button>
         <span className="text-sm font-semibold text-navy-900">ระบบหลังบ้าน</span>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
           {initialOf(session)}
         </div>
       </div>
@@ -69,7 +69,7 @@ export function AdminShell({ session, children }: { session: Session; children: 
       >
         <div className="flex items-center justify-between px-5 pt-6 pb-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white shadow-soft">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white shadow-soft">
               <ShieldCheck className="h-5 w-5" strokeWidth={2.25} />
             </div>
             <div>
@@ -95,15 +95,15 @@ export function AdminShell({ session, children }: { session: Session; children: 
                 href={link.href}
                 onClick={() => setOpen(false)}
                 className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  active ? 'bg-sky-50 text-sky-700' : 'text-navy-500 hover:bg-navy-50 hover:text-navy-800'
+                  active ? 'bg-brand-50 text-brand-700' : 'text-navy-500 hover:bg-navy-50 hover:text-navy-800'
                 }`}
               >
                 {active && (
-                  <span className="absolute top-1.5 bottom-1.5 left-0 w-1 rounded-full bg-sky-500" />
+                  <span className="absolute top-1.5 bottom-1.5 left-0 w-1 rounded-full bg-brand-500" />
                 )}
                 <Icon
                   className={`h-[18px] w-[18px] shrink-0 ${
-                    active ? 'text-sky-600' : 'text-navy-400 group-hover:text-sky-600'
+                    active ? 'text-brand-600' : 'text-navy-400 group-hover:text-brand-600'
                   }`}
                   strokeWidth={2}
                 />
@@ -115,7 +115,7 @@ export function AdminShell({ session, children }: { session: Session; children: 
 
         <div className="border-t border-navy-100 p-4">
           <div className="mb-3 flex items-center gap-3 rounded-xl bg-navy-50/70 px-3 py-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-semibold text-white">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white">
               {initialOf(session)}
             </div>
             <div className="min-w-0">

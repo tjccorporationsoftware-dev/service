@@ -24,6 +24,8 @@ npx eslint .       # lint  (`npm run lint` เรียก eslint เปล่�
 `db:init` และ `admin:password` รันด้วย `node --env-file=.env.local` — ตัวแปรที่ต้องมีคือ `DB_*`, `JWT_SECRET`,
 `RATE_LIMIT_ENABLED`, `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`
 
+`BRAND_COLOR_PRIMARY=#rrggbb` (ไม่บังคับ) ตั้งสีแบรนด์ต่อชุด deploy โดยไม่ต้อง build ใหม่ — ดูหัวข้อ *ธีมสีต่อบริษัท*
+
 `next.config.ts` มี `allowedDevOrigins` ฝัง IP ของเครื่องพัฒนาไว้ — ถ้าเข้าจากเครื่องอื่นใน LAN ตอน dev แล้วโดนบล็อก ให้เพิ่ม IP ตรงนั้นแล้ว restart
 
 ### สตาร์ต dev server ให้ชี้ฐานที่ถูกต้อง
@@ -102,6 +104,7 @@ serial_numbers (ผูกผลิตภัณฑ์แล้ว)
 - `serverExternalPackages: ['mysql2', 'bcryptjs']` ใน `next.config.ts` — สองตัวนี้โหลดโมดูลแบบ dynamic ห้าม bundle
 - route group: `app/(customer)/` = หน้าลูกค้า, `app/admin/(dashboard)/` = หน้าที่ต้อง login (แยกออกมาเพื่อให้ `/admin/login` ไม่ติด layout นี้)
 - `instrumentation.ts` ที่ root — Next เรียก `register()` ครั้งเดียวตอน server boot ตอนนี้ใช้พิมพ์ปลายทาง DB (`dbTarget` จาก `lib/db.ts`) ออก console เฉพาะตอน dev/test ถ้าจะเพิ่มอะไรในนี้ ต้องคง guard `NEXT_RUNTIME === 'nodejs'` + ไม่ทำงานตอน production ไว้
+  ข้อยกเว้นเดียวคือ `getBrand()` ที่เรียก**ก่อน** guard production โดยเจตนา — `BRAND_COLOR_PRIMARY` ผิดรูปแบบจะถูก log เป็น error ตั้งแต่ boot และทุก request ตอบ 500 (process ไม่ตาย) ไม่ต้องรอใครเปิดหน้าเว็บถึงจะรู้ (ขั้นนั้นไม่ log ค่าอื่น)
 
 ### Data layer — `lib/db.ts`
 
@@ -172,6 +175,20 @@ if (!parsed.success) return Response.json({ error: firstIssueMessage(parsed.erro
 หน้าตารางฝั่งแอดมินใช้ `useApiList(url)` จาก `lib/use-api-list.ts` — derive `loading` จากการเทียบ url ที่โหลดสำเร็จ (ไม่ `setLoading(true)` ในเอฟเฟกต์ ตามกฎ react-hooks) และมี `reload()` สำหรับโหลดซ้ำหลังบันทึกโดยตารางไม่กะพริบ
 
 Tailwind v4 ผ่าน `@tailwindcss/postcss` — ไม่มีไฟล์ `tailwind.config` ตั้งค่าใน `app/globals.css`
+
+### ธีมสีต่อบริษัท — `lib/brand.ts`
+
+โค้ดชุดเดียว deploy หลายชุด (คนละบริษัท คนละ `.env.local`) เปลี่ยนสีแบรนด์ด้วย `BRAND_COLOR_PRIMARY=#rrggbb` ตัวเดียว **ไม่ต้อง build ใหม่**
+
+- Tailwind v4 compile `bg-brand-500` เป็น `var(--color-brand-500)` (ไม่ฝัง hex) ค่าเริ่มต้นอยู่ใน `@theme` ของ `app/globals.css`
+  `app/layout.tsx` ตั้งตัวแปรชุดเดียวกันทับบน `<html style>` ซึ่งชนะ `:root` เสมอ — ไม่ตั้ง env = ไม่ตั้งทับ = palette เดิมเป๊ะ
+- `buildBrandPalette()` ไล่ 10 เฉดใน OKLCH จากบันไดความสว่างที่ calibrate จาก palette เริ่มต้น (ใส่ `#3985c4` ได้ของเดิมคืน)
+  เฉด 600 ขึ้นไปสว่างไม่เกิน L 0.512 จึงรับประกันตัวหนังสือขาวผ่าน 4.5:1 ทุกโทน — สีที่ตั้งมาอ่อน/เข้มเกินจะถูกเลื่อนความสว่าง (`adjusted`) พร้อม warn ตอน boot
+- root layout ตั้ง `dynamic = 'force-dynamic'` **โดยเจตนา** — ถ้าปล่อย prerender ค่าจากเครื่องที่ build จะฝังลง HTML แล้วทุกชุดได้สีเดียวกัน อย่าถอดออก
+- **ห้าม** ใช้ `NEXT_PUBLIC_*` กับค่าแบรนด์ (ฝังตอน build) และ **ห้าม** ใช้ `sky-*`/`blue-*` ของ Tailwind ตรง ๆ — ใช้ `brand-*` สำหรับสีแบรนด์, `navy-*` สำหรับสีกลาง, `emerald/amber/rose` สำหรับสถานะเท่านั้น
+- class ที่มี opacity (เช่น `bg-brand-500/20`) มี hex fallback ฝังไว้สำหรับเบราว์เซอร์ที่ไม่รู้จัก `color-mix()` (ก่อนปี 2023) — จุดพวกนั้นบนเบราว์เซอร์เก่าจะยังเป็นสีเริ่มต้น ยอมรับได้
+- Excel export (`sn/export`) อ่าน `getBrand().shades[600]` เป็นสีหัวตาราง เพราะ ExcelJS ต้องการ ARGB จริง
+- unit test: `tests/unit/brand.test.mjs`
 
 ### Rate limit
 

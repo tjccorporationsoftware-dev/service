@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import { query, type SqlParams } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth'
 import { SN_DISPLAY_STATUS_LABEL, snDisplayStatus } from '@/lib/warranty'
+import { getBrand } from '@/lib/brand'
 
 type Row = {
   sn: string
@@ -16,8 +17,9 @@ type Row = {
   warranty_end: string | null
 }
 
-// โทนสีเดียวกับธีมแอดมิน (app/globals.css) เพื่อให้ไฟล์ที่ส่งออกดูเป็นชุดเดียวกับหน้าจอ
-const BRAND_600 = 'FF2B6AA3'
+// โทนสีเดียวกับธีมแอดมิน เพื่อให้ไฟล์ที่ส่งออกดูเป็นชุดเดียวกับหน้าจอ
+// หัวตารางใช้ brand-600 ของชุดที่รันอยู่ (ค่าเดียวกับปุ่มหลัก) — ExcelJS ต้องการ ARGB จริง ใช้ CSS variable ไม่ได้
+const BRAND_600 = `FF${getBrand().shades[600].slice(1).toUpperCase()}`
 const NAVY_100 = 'FFDDE5EE'
 const ROW_BAND = 'FFF4F8FC'
 
