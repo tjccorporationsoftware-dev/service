@@ -70,9 +70,10 @@ function buttonClasses(
   className: string
 ) {
   const variants = {
+    // disabled ใช้พื้น 100 + ตัวหนังสือ 400 (ไม่ใช่ขาวบน 200) — palette ที่ไล่จาก BRAND_COLOR_PRIMARY สีอ่อนจะยังอ่านออก
     primary:
       'bg-brand-600 text-white shadow-soft hover:bg-brand-700 active:bg-brand-800 ' +
-      'disabled:bg-brand-200 disabled:shadow-none',
+      'disabled:bg-brand-100 disabled:text-brand-400 disabled:shadow-none',
     secondary:
       'border border-navy-200 bg-white text-navy-700 hover:border-brand-300 hover:bg-brand-50/60 hover:text-brand-700 ' +
       'disabled:text-navy-300 disabled:hover:border-navy-200 disabled:hover:bg-white',
