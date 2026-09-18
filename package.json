@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "dev:test": "node scripts/dev-test.mjs",
+    "start:company": "node scripts/start-company.mjs",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/start.mjs",
     "lint": "eslint",
     "test": "node --test --test-concurrency=1 tests/unit/*.test.mjs tests/api/*.test.mjs tests/flow/*.test.mjs",
     "test:unit": "node --test --test-concurrency=1 tests/unit/*.test.mjs",

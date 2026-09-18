@@ -1,10 +1,14 @@
 // Unit test ของ lib/brand.ts — ตัวไล่เฉดสีแบรนด์ ไม่แตะ DB
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import os from 'node:os'
+import path from 'node:path'
+import { writeFileSync } from 'node:fs'
 import {
   BRAND_SHADES,
   DEFAULT_BRAND_PALETTE,
   buildBrandPalette,
+  findCommentedHex,
   lightnessOf,
   normalizeHex,
   resolveBrand,
@@ -130,5 +134,28 @@ describe('resolveBrand', () => {
 
   test('hex ผิดรูปแบบ throw ตั้งแต่ตอนอ่านค่า', () => {
     assert.throws(() => resolveBrand({ BRAND_COLOR_PRIMARY: 'blue' }), /BRAND_COLOR_PRIMARY/)
+  })
+})
+
+describe('findCommentedHex — กับดัก # ในไฟล์ env', () => {
+  const tmp = (content) => {
+    const file = path.join(os.tmpdir(), `brand-env-${process.pid}-${Math.random().toString(36).slice(2)}.env`)
+    writeFileSync(file, content)
+    return file
+  }
+
+  test('=#rrggbb แบบไม่ครอบเครื่องหมายคำพูด ต้องถูกจับได้ (ทั้ง LF และ CRLF)', () => {
+    assert.equal(findCommentedHex(tmp('DB_NAME=x\nBRAND_COLOR_PRIMARY=#B8860B\nPORT=1\n')), '#B8860B')
+    assert.equal(findCommentedHex(tmp('DB_NAME=x\r\nBRAND_COLOR_PRIMARY=#b8860b\r\n')), '#b8860b')
+  })
+
+  test('รูปแบบที่ตัวโหลดอ่านได้ ต้องไม่ถูกจับ', () => {
+    assert.equal(findCommentedHex(tmp('BRAND_COLOR_PRIMARY=B8860B\n')), null)
+    assert.equal(findCommentedHex(tmp('BRAND_COLOR_PRIMARY="#B8860B"\n')), null)
+    assert.equal(findCommentedHex(tmp('# BRAND_COLOR_PRIMARY=#B8860B (คอมเมนต์จริง)\n')), null)
+  })
+
+  test('ไม่มีไฟล์ = null', () => {
+    assert.equal(findCommentedHex(path.join(os.tmpdir(), 'no-such-file.env')), null)
   })
 })

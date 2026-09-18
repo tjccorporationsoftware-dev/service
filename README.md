@@ -8,7 +8,7 @@ Next.js 16 (App Router) + MariaDB — ครอบคลุมทั้งฝั
 
 ```bash
 npm install
-npm run db:init    # สร้าง database + ตาราง + seed ผลิตภัณฑ์และแอดมิน
+npm run db:init    # สร้าง database + ตาราง + แอดมินคนแรก (ผลิตภัณฑ์ตัวอย่างเฉพาะเมื่อ SEED_PRODUCTS=true)
 npm run dev        # http://localhost:3000
 ```
 
@@ -97,7 +97,7 @@ lib/
 └── use-api-list.ts      # hook ดึงข้อมูลตารางฝั่ง client
 proxy.ts                 # ป้องกัน /admin/* และ /api/admin/*
 db/schema.sql            # schema ทั้งหมด
-scripts/init-db.mjs      # สร้าง DB + seed
+scripts/init-db.mjs      # สร้าง DB + migration (+ ผลิตภัณฑ์ตัวอย่างเมื่อ SEED_PRODUCTS=true)
 uploads/                 # ไฟล์แนบ (ไม่ commit)
 ```
 
@@ -163,7 +163,7 @@ DELETE FROM audit_logs;
 npm run dev       # dev server
 npm run build     # production build
 npm start         # รัน production build
-npm run db:init   # สร้าง/อัปเดต schema + seed (รันซ้ำได้ ไม่ลบข้อมูลเดิม)
+npm run db:init   # สร้าง/อัปเดต schema + แอดมินคนแรก (ผลิตภัณฑ์ตัวอย่างเมื่อ SEED_PRODUCTS=true) (รันซ้ำได้ ไม่ลบข้อมูลเดิม)
 npm run admin:password -- <username> <password>   # ตั้งรหัสผ่านแอดมิน
 npx eslint .      # lint
 npx tsc --noEmit  # typecheck

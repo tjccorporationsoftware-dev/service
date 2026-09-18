@@ -11,8 +11,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev        # dev server → ฐานจริง warranty_db (ต้องเปิด MariaDB ใน XAMPP ก่อน)
 npm run dev:test   # dev server → ฐานทดสอบ warranty_test + เปิด rate limit
 npm run build      # production build
-npm start          # รัน production build
-npm run db:init    # สร้าง DB + ตาราง + migration + seed — รันซ้ำได้ ไม่ลบข้อมูลเดิม
+npm start          # รัน production build — อ่าน PORT/HOST จาก .env.local ผ่าน scripts/start.mjs (Next ไม่อ่าน PORT จากไฟล์ env เอง)
+npm run db:init    # สร้าง DB + ตาราง + migration + แอดมินคนแรก — รันซ้ำได้ ไม่ลบข้อมูลเดิม (ผลิตภัณฑ์ตัวอย่างเฉพาะเมื่อ SEED_PRODUCTS=true)
+npm run start:company -- tjc art tangjai ascent   # รัน production build หลายชุดบริษัทพร้อมกันจากโฟลเดอร์นี้ (อ่าน .env.<ชุด> ต้อง build ก่อน)
 npm run admin:password -- <username> <password>   # ตั้งรหัสผ่านแอดมิน (bcrypt)
 
 npx tsc --noEmit   # typecheck
@@ -24,7 +25,8 @@ npx eslint .       # lint  (`npm run lint` เรียก eslint เปล่�
 `db:init` และ `admin:password` รันด้วย `node --env-file=.env.local` — ตัวแปรที่ต้องมีคือ `DB_*`, `JWT_SECRET`,
 `RATE_LIMIT_ENABLED`, `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`
 
-`BRAND_COLOR_PRIMARY=#rrggbb` (ไม่บังคับ) ตั้งสีแบรนด์ต่อชุด deploy โดยไม่ต้อง build ใหม่ — ดูหัวข้อ *ธีมสีต่อบริษัท*
+`BRAND_COLOR_PRIMARY=rrggbb` (ไม่บังคับ **ไม่ใส่ #**) ตั้งสีแบรนด์ต่อชุด deploy โดยไม่ต้อง build ใหม่ — ดูหัวข้อ *ธีมสีต่อบริษัท*
+`SEED_PRODUCTS=true` ให้ `db:init` ใส่ผลิตภัณฑ์ตัวอย่าง 6 รายการ — ต้องตั้งใน `.env.test` (เทสต์ public นับขั้นต่ำ 6) ห้ามตั้งกับฐานบริษัทจริง · `PORT`/`HOST` ใช้โดย `npm start` เท่านั้น
 
 `next.config.ts` มี `allowedDevOrigins` ฝัง IP ของเครื่องพัฒนาไว้ — ถ้าเข้าจากเครื่องอื่นใน LAN ตอน dev แล้วโดนบล็อก ให้เพิ่ม IP ตรงนั้นแล้ว restart
 
@@ -178,7 +180,9 @@ Tailwind v4 ผ่าน `@tailwindcss/postcss` — ไม่มีไฟล์ 
 
 ### ธีมสีต่อบริษัท — `lib/brand.ts`
 
-โค้ดชุดเดียว deploy หลายชุด (คนละบริษัท คนละ `.env.local`) เปลี่ยนสีแบรนด์ด้วย `BRAND_COLOR_PRIMARY=#rrggbb` ตัวเดียว **ไม่ต้อง build ใหม่**
+โค้ดชุดเดียว deploy หลายชุด (คนละบริษัท คนละ `.env.local`) เปลี่ยนสีแบรนด์ด้วย `BRAND_COLOR_PRIMARY=rrggbb` ตัวเดียว **ไม่ต้อง build ใหม่**
+
+**กับดัก:** ในไฟล์ env ห้ามเขียน `=#rrggbb` โดยไม่ครอบเครื่องหมายคำพูด — dotenv (ที่ Next ใช้) และ `process.loadEnvFile` ตีความ `#` ขึ้นต้นค่าเป็นคอมเมนต์ ได้ค่าว่างเงียบ ๆ แล้วเว็บขึ้นสีเริ่มต้น `getBrand()` ตรวจ `.env.local` ตรง ๆ แล้ว throw ตั้งแต่ boot ถ้าเจอรูปแบบนี้ รูปแบบที่ถูกคือไม่มี `#` (หรือครอบ `"#rrggbb"`)
 
 - Tailwind v4 compile `bg-brand-500` เป็น `var(--color-brand-500)` (ไม่ฝัง hex) ค่าเริ่มต้นอยู่ใน `@theme` ของ `app/globals.css`
   `app/layout.tsx` ตั้งตัวแปรชุดเดียวกันทับบน `<html style>` ซึ่งชนะ `:root` เสมอ — ไม่ตั้ง env = ไม่ตั้งทับ = palette เดิมเป๊ะ

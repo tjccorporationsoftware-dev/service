@@ -8,6 +8,12 @@
 //
 // ใช้ได้เฉพาะฝั่ง server (อ่าน process.env) — client component ห้าม import ไฟล์นี้
 // ห้ามใช้ NEXT_PUBLIC_ กับค่าแบรนด์ เพราะจะถูกฝังตอน build แล้วทุกชุด deploy ได้ค่าเดียวกัน
+//
+// รูปแบบค่าในไฟล์ env: BRAND_COLOR_PRIMARY=B8860B (ไม่มี #) — ถ้าเขียน =#B8860B โดยไม่ครอบเครื่องหมายคำพูด
+// ทั้ง Next (dotenv) และ Node จะตีความ # เป็นคอมเมนต์ ได้ค่าว่างเงียบ ๆ แล้วเว็บขึ้นสีเริ่มต้นโดยไม่มี error
+// getBrand() จึงตรวจไฟล์ .env.local ตรง ๆ แล้ว throw ตั้งแต่ boot ถ้าเจอรูปแบบนั้น
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 
 export const BRAND_SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
 export type BrandShade = (typeof BRAND_SHADES)[number]
@@ -208,12 +214,31 @@ export function resolveBrand(env: Record<string, string | undefined> = process.e
   return { configured: true, colorPrimary, adjusted, shades, cssVars }
 }
 
+/**
+ * หา BRAND_COLOR_PRIMARY=#rrggbb แบบไม่ครอบเครื่องหมายคำพูดในไฟล์ env (ตัวโหลด env อ่านเป็นค่าว่าง)
+ * คืน "#rrggbb" ที่เจอ หรือ null — แยกเป็นฟังก์ชันเพื่อให้ทดสอบกับไฟล์ชั่วคราวได้
+ */
+export function findCommentedHex(envFile: string): string | null {
+  if (!existsSync(envFile)) return null
+  const match = /^\s*BRAND_COLOR_PRIMARY\s*=\s*(#[0-9a-fA-F]{6})\s*$/m.exec(readFileSync(envFile, 'utf8'))
+  return match ? match[1] : null
+}
+
 let cached: Brand | undefined
 
 /** ค่าแบรนด์ของ process นี้ — คำนวณครั้งเดียว (env ไม่เปลี่ยนระหว่างรัน) */
 export function getBrand(): Brand {
   if (!cached) {
     cached = resolveBrand()
+    if (!cached.configured) {
+      const commented = findCommentedHex(path.join(process.cwd(), '.env.local'))
+      if (commented) {
+        throw new Error(
+          `BRAND_COLOR_PRIMARY=${commented} ใน .env.local ถูกอ่านเป็นค่าว่าง เพราะ # ที่ขึ้นต้นค่าคือคอมเมนต์ในไฟล์ env — ` +
+            `ให้เขียน BRAND_COLOR_PRIMARY=${commented.slice(1)} (ไม่มี #)`
+        )
+      }
+    }
     if (cached.adjusted) {
       console.warn(
         `⚠ BRAND_COLOR_PRIMARY ${cached.colorPrimary} อ่อนหรือเข้มเกินกว่าจะใช้เป็นเฉด 500 ตรง ๆ — ` +

@@ -1,4 +1,4 @@
-// สร้างฐานข้อมูล + ตาราง + seed ข้อมูลตั้งต้น
+// สร้างฐานข้อมูล + ตาราง + migration + แอดมินคนแรก (ผลิตภัณฑ์ตัวอย่างเฉพาะเมื่อ SEED_PRODUCTS=true)
 // รันด้วย: npm run db:init
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -88,17 +88,24 @@ async function main() {
   for (const sql of MIGRATIONS) await conn.query(sql)
   console.log('✓ อัปเดตโครงสร้างตารางเป็นเวอร์ชันล่าสุด')
 
-  // INSERT IGNORE — seed เฉพาะตอนยังไม่มี code นั้น ห้ามแตะแถวที่มีอยู่แล้วเด็ดขาด
-  // ของเดิมใช้ ON DUPLICATE KEY UPDATE name/brand/model ซึ่งทำให้การรัน db:init
-  // ย้อนชื่อ/แบรนด์/รุ่นที่แอดมินแก้ไว้เองกลับเป็นค่า seed โดยไม่มีใครสังเกต
-  for (const p of SEED_PRODUCTS) {
-    await conn.execute(
-      `INSERT IGNORE INTO products (name, code, brand, model, warranty_years, warranty_months, warranty_days)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [p.name, p.code, p.brand, p.model, p.years, p.months, p.days]
-    )
+  // ผลิตภัณฑ์ตัวอย่าง 6 รายการ ใส่เฉพาะเมื่อตั้ง SEED_PRODUCTS=true — ค่าเริ่มต้นคือ "ไม่ใส่"
+  // เพราะฐานของบริษัทจริงต้องเริ่มว่าง: ลืมตั้ง flag แล้วเทสต์ล้ม ดีกว่าได้ของปลอมติดไปฐานจริงโดยไม่มีใครสังเกต
+  // (ฐานทดสอบ warranty_test ต้องตั้ง — เทสต์ public นับขั้นต่ำ 6 รายการ)
+  if (process.env.SEED_PRODUCTS === 'true') {
+    // INSERT IGNORE — seed เฉพาะตอนยังไม่มี code นั้น ห้ามแตะแถวที่มีอยู่แล้วเด็ดขาด
+    // ของเดิมใช้ ON DUPLICATE KEY UPDATE name/brand/model ซึ่งทำให้การรัน db:init
+    // ย้อนชื่อ/แบรนด์/รุ่นที่แอดมินแก้ไว้เองกลับเป็นค่า seed โดยไม่มีใครสังเกต
+    for (const p of SEED_PRODUCTS) {
+      await conn.execute(
+        `INSERT IGNORE INTO products (name, code, brand, model, warranty_years, warranty_months, warranty_days)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [p.name, p.code, p.brand, p.model, p.years, p.months, p.days]
+      )
+    }
+    console.log(`✓ seed ผลิตภัณฑ์ตัวอย่าง ${SEED_PRODUCTS.length} รายการ (SEED_PRODUCTS=true)`)
+  } else {
+    console.log('- ข้ามผลิตภัณฑ์ตัวอย่าง (ตั้ง SEED_PRODUCTS=true ถ้าต้องการ เช่นฐานทดสอบ)')
   }
-  console.log(`✓ seed ผลิตภัณฑ์ ${SEED_PRODUCTS.length} รายการ`)
 
   const username = process.env.SEED_ADMIN_USERNAME || 'admin'
   const password = process.env.SEED_ADMIN_PASSWORD || 'admin1234'
