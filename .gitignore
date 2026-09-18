@@ -43,5 +43,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-DEPLOYMENT-SURVEY.md
+
+# เอกสารภายใน — repo เป็น public ห้าม track (ไฟล์ยังอยู่ในเครื่อง)
+CLAUDE.md
+TEST-PLAN.md
 DEPLOYMENT-PLAN.md
+DEPLOYMENT-SURVEY.md

@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, FlaskConical, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ShieldCheck } from 'lucide-react'
 import { Alert, Button, Card, Field, Input } from '@/components/admin/ui'
 
 export default function AdminLoginPage() {
@@ -22,12 +22,6 @@ function LoginForm() {
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  // ปุ่มนี้โชว์เฉพาะตอน dev เท่านั้น — กันไม่ให้ credential ทดสอบหลุดไปอยู่บนเว็บจริง
-  const isDev = process.env.NODE_ENV !== 'production'
-  function fillTestCredentials() {
-    setForm({ username: 'admin', password: 'Start123456' })
-  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -95,19 +89,6 @@ function LoginForm() {
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
             </Button>
-
-            {isDev && (
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                onClick={fillTestCredentials}
-                disabled={submitting}
-              >
-                <FlaskConical className="h-4 w-4" />
-                ทดสอบ (กรอกรหัสอัตโนมัติ)
-              </Button>
-            )}
           </form>
         </Card>
 

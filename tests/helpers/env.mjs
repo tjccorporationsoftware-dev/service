@@ -15,10 +15,15 @@ if (process.env.DB_NAME !== 'warranty_test') {
   throw new Error(`.env.test ต้องตั้ง DB_NAME=warranty_test (ตอนนี้ได้ "${process.env.DB_NAME}")`)
 }
 
+// รหัสแอดมินของฐานเทสต์ต้องมาจาก .env.test เท่านั้น — ไม่มี fallback ในโค้ด เพราะ repo เป็น public
+if (!process.env.SEED_ADMIN_USERNAME || !process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('.env.test ต้องตั้ง SEED_ADMIN_USERNAME และ SEED_ADMIN_PASSWORD (ค่าเดียวกับที่ใช้ db:init ฐานเทสต์)')
+}
+
 export const BASE_URL = process.env.TEST_BASE_URL ?? 'http://localhost:3000'
 export const JWT_SECRET = process.env.JWT_SECRET
-export const ADMIN_USERNAME = process.env.SEED_ADMIN_USERNAME ?? 'admin'
-export const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'admin1234'
+export const ADMIN_USERNAME = process.env.SEED_ADMIN_USERNAME
+export const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD
 
 export const DB_CONFIG = {
   host: process.env.DB_HOST || '127.0.0.1',

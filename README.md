@@ -12,7 +12,7 @@ npm run db:init    # สร้าง database + ตาราง + แอดม�
 npm run dev        # http://localhost:3000
 ```
 
-บัญชีแอดมินเริ่มต้น: **admin / admin1234** — ตั้งค่าได้ใน `.env.local` ก่อนรัน `db:init`
+บัญชีแอดมินคนแรกถูกสร้างตอน `db:init` จากค่า `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` ใน `.env.local` — ตั้งให้เรียบร้อยก่อนรัน และเปลี่ยนรหัสผ่านทันทีหลังขึ้นระบบจริง
 
 ### เปลี่ยนรหัสผ่านแอดมิน
 
