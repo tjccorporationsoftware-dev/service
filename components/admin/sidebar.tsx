@@ -19,12 +19,12 @@ import {
 
 const LINKS = [
   { href: '/admin/dashboard', label: 'ภาพรวม', icon: LayoutDashboard },
-  { href: '/admin/products', label: 'ผลิตภัณฑ์', icon: Package },
-    { href: '/admin/sn-setup', label: 'ตั้งค่ารหัส SN', icon: ListOrdered },
-  { href: '/admin/serial-numbers', label: 'Serial Number', icon: QrCode },
   { href: '/admin/registrations', label: 'การลงทะเบียน', icon: ClipboardList },
+  { href: '/admin/products', label: 'ผลิตภัณฑ์', icon: Package },
+  { href: '/admin/sn-setup', label: 'ตั้งค่ารหัส SN', icon: ListOrdered },
+  { href: '/admin/serial-numbers', label: 'SN', icon: QrCode },
   { href: '/admin/issues', label: 'คำขอรับบริการ', icon: MessageSquareWarning },
-  { href: '/admin/qrcode', label: 'สร้าง QR Code', icon: ScanLine },
+  { href: '/admin/qrcode', label: 'สร้าง QR', icon: ScanLine },
 ]
 
 type Session = { username: string; displayName: string | null; role: 'admin' | 'staff' }
