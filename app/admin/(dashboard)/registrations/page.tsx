@@ -17,6 +17,7 @@ import {
   formatDate,
   formatDateTime,
 } from '@/components/admin/ui'
+import { ThaiDatePicker } from '@/components/thai-date-picker'
 import { useApiList } from '@/lib/use-api-list'
 
 type Product = { id: number; name: string }
@@ -275,7 +276,7 @@ function DateFilterTh({
   }, [])
 
   const dateInputClass =
-    'w-[128px] rounded-lg border border-navy-100 px-1.5 py-1 text-xs font-normal normal-case text-navy-700 ' +
+    'w-[140px] rounded-lg border border-navy-100 px-1.5 py-1 text-xs font-normal normal-case text-navy-700 ' +
     'outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100'
 
   return (
@@ -297,19 +298,17 @@ function DateFilterTh({
           <div className="absolute top-full left-0 z-20 mt-2 w-max rounded-xl border border-navy-100 bg-white p-3 shadow-soft-lg">
             {hint && <p className="mb-2 text-xs font-normal normal-case text-navy-400">{hint}</p>}
             <div className="flex items-center gap-1.5">
-              <input
-                type="date"
+              <ThaiDatePicker
                 value={from}
-                onChange={(e) => onFromChange(e.target.value)}
-                className={dateInputClass}
+                onChange={onFromChange}
+                inputClassName={dateInputClass}
                 aria-label={`${label} จากวันที่`}
               />
               <span className="text-xs text-navy-300">ถึง</span>
-              <input
-                type="date"
+              <ThaiDatePicker
                 value={to}
-                onChange={(e) => onToChange(e.target.value)}
-                className={dateInputClass}
+                onChange={onToChange}
+                inputClassName={dateInputClass}
                 aria-label={`${label} ถึงวันที่`}
               />
             </div>

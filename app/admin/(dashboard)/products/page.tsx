@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   CardHeader,
+  DateInput,
   Field,
   Input,
   TableEmpty,
@@ -549,19 +550,17 @@ export default function ProductsPage() {
                 >
                   {/* ไม่ใส่ label ย่อยเหนือ input เพราะจะดันให้ช่องนี้สูงกว่าช่องอื่นจนแถวไม่ตรงแนว */}
                   <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="date"
+                    <DateInput
                       value={form.warranty_start_date}
-                      onChange={(e) => setForm({ ...form, warranty_start_date: e.target.value })}
-                      max="9999-12-31"
+                      onChange={(iso) => setForm({ ...form, warranty_start_date: iso })}
+                      aria-label="วันเริ่มประกัน"
                       className="min-w-0 px-2 text-sm"
                     />
-                    <Input
-                      type="date"
+                    <DateInput
                       value={form.warranty_end_date}
-                      onChange={(e) => setForm({ ...form, warranty_end_date: e.target.value })}
+                      onChange={(iso) => setForm({ ...form, warranty_end_date: iso })}
                       min={form.warranty_start_date || undefined}
-                      max="9999-12-31"
+                      aria-label="วันสิ้นสุดประกัน"
                       className="min-w-0 px-2 text-sm"
                     />
                   </div>

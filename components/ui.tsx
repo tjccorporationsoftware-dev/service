@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react'
+import { ThaiDatePicker, type ThaiDatePickerProps } from '@/components/thai-date-picker'
 import Link from 'next/link'
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -48,6 +49,13 @@ export function Select({ className = '', ...props }: ComponentProps<'select'>) {
 
 export function Textarea({ className = '', ...props }: ComponentProps<'textarea'>) {
   return <textarea className={`${controlClass} ${className}`} {...props} />
+}
+/** ช่องวันที่แบบ พ.ศ. — ค่าเข้า/ออกเป็น 'YYYY-MM-DD' ค.ศ. เหมือน <input type="date"> จึงใช้แทนกันได้โดยไม่แตะ state/API */
+export function DateInput({
+  className = '',
+  ...props
+}: Omit<ThaiDatePickerProps, 'inputClassName'> & { className?: string }) {
+  return <ThaiDatePicker inputClassName={`${controlClass} ${className}`} {...props} />
 }
 
 /** Input พร้อมไอคอนนำหน้า — ใช้กับเบอร์โทร / Serial Number ให้ดูมีทิศทางว่ากรอกอะไร */

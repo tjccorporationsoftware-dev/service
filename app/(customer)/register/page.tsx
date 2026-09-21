@@ -6,6 +6,7 @@ import {
   Alert,
   Button,
   Card,
+  DateInput,
   Field,
   IconCircle,
   Input,
@@ -314,14 +315,14 @@ export default function RegisterPage() {
                 >
                   วันที่เริ่มประกัน
                 </span>
-                <Input
-                  type="date"
+                <DateInput
                   value={form.customer_reported_warranty_start}
-                  onChange={(e) => {
-                    setForm({ ...form, customer_reported_warranty_start: e.target.value })
+                  onChange={(iso) => {
+                    setForm({ ...form, customer_reported_warranty_start: iso })
                     setFieldErrors((f) => ({ ...f, warranty_start: false }))
                   }}
                   className={fieldErrors.warranty_start ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : ''}
+                  aria-label="วันที่เริ่มประกัน"
                   required
                 />
                 {fieldErrors.warranty_start && (
@@ -334,14 +335,14 @@ export default function RegisterPage() {
                 >
                   วันที่สิ้นสุดประกัน
                 </span>
-                <Input
-                  type="date"
+                <DateInput
                   value={form.customer_reported_warranty_end}
-                  onChange={(e) => {
-                    setForm({ ...form, customer_reported_warranty_end: e.target.value })
+                  onChange={(iso) => {
+                    setForm({ ...form, customer_reported_warranty_end: iso })
                     setFieldErrors((f) => ({ ...f, warranty_end: false }))
                   }}
                   className={fieldErrors.warranty_end ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : ''}
+                  aria-label="วันที่สิ้นสุดประกัน"
                   required
                 />
                 {fieldErrors.warranty_end && (

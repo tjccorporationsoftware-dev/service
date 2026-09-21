@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CardHeader,
+  DateInput,
   Field,
   Input,
   Pagination,
@@ -604,10 +605,10 @@ export default function SerialNumbersPage() {
 
             <div className="mt-4">
               <Field label="วันที่เริ่มประกัน" hint="ไม่ระบุ = เริ่มวันนี้">
-                <Input
-                  type="date"
+                <DateInput
                   value={modalDate}
-                  onChange={(e) => setModalDate(e.target.value)}
+                  onChange={setModalDate}
+                  aria-label="วันที่เริ่มประกัน"
                   disabled={starting}
                 />
               </Field>
