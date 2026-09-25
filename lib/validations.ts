@@ -166,6 +166,25 @@ export const issueUpdateSchema = z.object({
   admin_note: z.string().trim().max(5000).optional().or(z.literal('')),
 })
 
+/**
+ * PATCH /api/service/issues/[id] — ระบบแจ้งซ่อมเปลี่ยนสถานะเคส
+ * `only_if_status` ให้เปลี่ยนเฉพาะเมื่อสถานะปัจจุบันยังเป็นค่าใดค่าหนึ่งในนี้
+ * (ระบบแจ้งซ่อมใช้กันไม่ให้ไปทับสถานะที่แอดมินฝั่งนี้ตั้งเองไว้)
+ */
+export const serviceIssuePatchSchema = z.object({
+  status: z.enum(['pending', 'in_progress', 'resolved', 'closed'], {
+    message: 'สถานะไม่ถูกต้อง — ต้องเป็น pending, in_progress, resolved หรือ closed',
+  }),
+  only_if_status: z
+    .array(
+      z.enum(['pending', 'in_progress', 'resolved', 'closed'], {
+        message: 'only_if_status มีค่าที่ไม่รู้จัก',
+      })
+    )
+    .min(1, 'only_if_status ต้องมีอย่างน้อย 1 ค่า')
+    .optional(),
+})
+
 /** ข้อจำกัดไฟล์แนบ */
 export const UPLOAD_LIMITS = {
   image: {
