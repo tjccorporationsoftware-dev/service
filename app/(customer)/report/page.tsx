@@ -23,6 +23,13 @@ import {
 } from '@/components/ui'
 import { UPLOAD_LIMITS } from '@/lib/validations'
 
+/**
+ * ระบุทั้ง MIME และนามสกุล เพราะเบราว์เซอร์บนมือถือบางตัวไม่รู้จัก MIME ของ HEIC
+ * ถ้าใส่แต่ MIME รูปที่ถ่ายจาก iPhone จะถูกเทาไว้จนเลือกไม่ได้ในหน้าต่างเลือกไฟล์
+ */
+const IMAGE_ACCEPT =
+  'image/jpeg,image/png,image/heic,image/heif,image/webp,.jpg,.jpeg,.png,.heic,.heif,.webp'
+
 type WarrantyInfo = {
   registered: boolean
   claimed?: boolean
@@ -98,7 +105,15 @@ export default function ReportPage() {
     }
     const tooBig = incoming.find((f) => f.size > UPLOAD_LIMITS.image.maxSize)
     if (tooBig) {
-      setError(`รูป "${tooBig.name}" ใหญ่เกิน 5MB`)
+      const mb = Math.round(UPLOAD_LIMITS.image.maxSize / 1024 / 1024)
+      setError(`รูป "${tooBig.name}" ใหญ่เกิน ${mb}MB`)
+      return
+    }
+    // เตือนตั้งแต่ก่อนส่ง ดีกว่าให้อัปโหลดไปจนครบแล้วค่อยโดนเซิร์ฟเวอร์ปฏิเสธ
+    const combinedSize = combined.reduce((sum, f) => sum + f.size, 0)
+    if (combinedSize > UPLOAD_LIMITS.totalMaxSize) {
+      const mb = Math.round(UPLOAD_LIMITS.totalMaxSize / 1024 / 1024)
+      setError(`รูปทั้งหมดรวมกันใหญ่เกิน ${mb}MB — กรุณาแบ่งแจ้งเป็นหลายครั้ง`)
       return
     }
     setError('')
@@ -289,7 +304,7 @@ export default function ReportPage() {
             <input
               ref={imageInputRef}
               type="file"
-              accept="image/jpeg,image/png"
+              accept={IMAGE_ACCEPT}
               multiple
               onChange={(e) => {
                 addImages(e.target.files)

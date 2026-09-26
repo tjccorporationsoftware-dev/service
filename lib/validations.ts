@@ -188,10 +188,14 @@ export const serviceIssuePatchSchema = z.object({
 /** ข้อจำกัดไฟล์แนบ */
 export const UPLOAD_LIMITS = {
   image: {
-    maxCount: 5,
-    maxSize: 5 * 1024 * 1024, // 5MB
-    mimeTypes: ['image/jpeg', 'image/png'],
-    label: 'รูปภาพ (jpg/png) ไม่เกิน 5MB ต่อรูป สูงสุด 5 รูป',
+    // 30 รูป/25MB ต่อรูป — ตั้งให้สูงพอที่ลูกค้าจริงจะไม่ชนเพดาน แต่ยังมีเพดานอยู่
+    // เพราะ saveUpload() อ่านไฟล์เข้าหน่วยความจำทั้งก้อน ถ้าปล่อยไม่จำกัดเลย
+    // คำขอเดียวที่แนบมาหลายร้อยไฟล์ทำให้เซิร์ฟเวอร์ล่มได้
+    maxCount: 30,
+    maxSize: 25 * 1024 * 1024, // 25MB — รูปจากมือถือรุ่นใหม่ใหญ่ได้ถึง ~15MB
+    // heic/heif = รูปจาก iPhone · webp = รูปจาก Android บางรุ่นและภาพที่เซฟจากเว็บ
+    mimeTypes: ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp'],
+    label: 'รูปภาพ (jpg/png/heic/webp) ไม่เกิน 25MB ต่อรูป สูงสุด 30 รูป',
   },
   video: {
     maxCount: 1,
@@ -199,6 +203,11 @@ export const UPLOAD_LIMITS = {
     mimeTypes: ['video/mp4'],
     label: 'วิดีโอ (mp4) ไม่เกิน 50MB จำนวน 1 คลิป',
   },
+  /**
+   * เพดานรวมทั้งคำขอ — กันคนแนบ 30 รูป × 25MB (750MB) พร้อมกันจนหน่วยความจำหมด
+   * ผู้ใช้จริงไม่มีทางชน ตัวเลขนี้จึงเป็นตาข่ายกันเซิร์ฟเวอร์ล่ม ไม่ใช่ข้อจำกัดการใช้งาน
+   */
+  totalMaxSize: 200 * 1024 * 1024, // 200MB
 } as const
 
 /** แปลง ZodError เป็นข้อความเดียวสำหรับแสดงผล */

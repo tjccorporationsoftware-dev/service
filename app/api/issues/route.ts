@@ -38,6 +38,17 @@ export async function POST(request: Request) {
     return Response.json({ error: UPLOAD_LIMITS.video.label }, { status: 400 })
   }
 
+  // ตาข่ายกันเซิร์ฟเวอร์ล่ม — saveUpload() อ่านไฟล์เข้าหน่วยความจำทั้งก้อน
+  // ผู้ใช้จริงไม่มีทางชนเพดานนี้ แต่คำขอที่จงใจแนบไฟล์ใหญ่หลายสิบไฟล์จะถูกตัดตั้งแต่ก่อนเริ่มเขียนดิสก์
+  const totalSize = [...images, ...videos].reduce((sum, f) => sum + f.size, 0)
+  if (totalSize > UPLOAD_LIMITS.totalMaxSize) {
+    const mb = Math.round(UPLOAD_LIMITS.totalMaxSize / 1024 / 1024)
+    return Response.json(
+      { error: `ไฟล์แนบรวมกันใหญ่เกิน ${mb}MB — กรุณาแบ่งแจ้งเป็นหลายครั้ง` },
+      { status: 400 }
+    )
+  }
+
   // ต้องลงทะเบียนก่อนถึงแจ้งปัญหาได้ และเบอร์ต้องตรงกับตอนลงทะเบียน
   const registration = await queryOne<{
     id: number

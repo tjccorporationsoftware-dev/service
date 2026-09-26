@@ -13,7 +13,35 @@ export const UPLOAD_ROOT = path.join(process.cwd(), 'uploads')
 const EXTENSION_BY_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
+  'image/heic': 'heic',
+  'image/heif': 'heic', // เก็บเป็น .heic ตัวเดียว — สองชนิดนี้คือรูปแบบเดียวกัน ต่างแค่ชื่อที่ระบบส่งมา
+  'image/webp': 'webp',
   'video/mp4': 'mp4',
+}
+
+/**
+ * นามสกุล → MIME ใช้ตอนที่เบราว์เซอร์ไม่บอกชนิดไฟล์มา
+ * มือถือบางรุ่น/บางเบราว์เซอร์ส่ง HEIC มาเป็น '' หรือ 'application/octet-stream'
+ * ถ้าดูแค่ file.type อย่างเดียวจะปฏิเสธรูปที่ถ่ายจาก iPhone ทิ้งไปทั้งที่ไฟล์ใช้ได้
+ */
+const MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  webp: 'image/webp',
+  mp4: 'video/mp4',
+}
+
+/** ชนิดไฟล์ที่แท้จริง — เชื่อ file.type ก่อน ถ้าไม่บอกมาค่อยเดาจากนามสกุล */
+export function resolveMimeType(file: File): string {
+  const declared = (file.type || '').toLowerCase()
+  if (declared && declared !== 'application/octet-stream' && EXTENSION_BY_MIME[declared]) {
+    return declared
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  return MIME_BY_EXTENSION[ext] ?? declared
 }
 
 export type SavedUpload = {
@@ -29,7 +57,8 @@ export class UploadError extends Error {}
 export async function saveUpload(file: File, kind: 'image' | 'video'): Promise<SavedUpload> {
   const limits = UPLOAD_LIMITS[kind]
 
-  if (!(limits.mimeTypes as readonly string[]).includes(file.type)) {
+  const mime = resolveMimeType(file)
+  if (!(limits.mimeTypes as readonly string[]).includes(mime)) {
     throw new UploadError(`ชนิดไฟล์ไม่รองรับ — ต้องเป็น ${limits.label}`)
   }
   if (file.size > limits.maxSize) {
@@ -42,7 +71,7 @@ export async function saveUpload(file: File, kind: 'image' | 'video'): Promise<S
   // ตั้งชื่อไฟล์ใหม่เองทั้งหมด ไม่แตะชื่อเดิมจากผู้ใช้ → กัน path traversal
   const now = new Date()
   const dir = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`
-  const ext = EXTENSION_BY_MIME[file.type]
+  const ext = EXTENSION_BY_MIME[mime]
   const name = `${randomUUID()}.${ext}`
   const relativePath = `${dir}/${name}`
 
@@ -74,5 +103,7 @@ export function resolveUploadPath(segments: string[]): string | null {
 export const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   jpg: 'image/jpeg',
   png: 'image/png',
+  heic: 'image/heic',
+  webp: 'image/webp',
   mp4: 'video/mp4',
 }
