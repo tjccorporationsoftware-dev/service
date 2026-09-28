@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
+  BookOpen,
   ClipboardList,
   LayoutDashboard,
   ListOrdered,
@@ -25,6 +26,7 @@ const LINKS = [
   { href: '/admin/serial-numbers', label: 'SN', icon: QrCode },
   { href: '/admin/issues', label: 'คำขอรับบริการ', icon: MessageSquareWarning },
   { href: '/admin/qrcode', label: 'สร้าง QR', icon: ScanLine },
+  { href: '/admin/manual', label: 'คู่มือ', icon: BookOpen },
 ]
 
 type Session = { username: string; displayName: string | null; role: 'admin' | 'staff' }

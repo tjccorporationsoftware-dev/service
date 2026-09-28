@@ -46,6 +46,7 @@ npm run admin:password -- admin รหัสผ่านใหม่
 | Serial Number | `/admin/serial-numbers` | Generate แบบ batch, ค้นหา, **เริ่มระยะเวลาประกันทีละหลายรายการ**, Export CSV |
 | การลงทะเบียน | `/admin/registrations` | ตารางลงทะเบียน + filter/search |
 | เคสแจ้งปัญหา | `/admin/issues` | ดูรูป/วิดีโอที่แนบ + อัปเดตสถานะและหมายเหตุ |
+| คู่มือ | `/admin/manual` | คู่มือการใช้งานหลังบ้าน (รูปทีละหน้า + ดาวน์โหลด PDF) — อ่านจากโฟลเดอร์ `manual/` ซึ่งไม่อยู่ใน git ต้องคัดลอกขึ้นเซิร์ฟเวอร์เอง |
 
 ## API
 
@@ -75,6 +76,7 @@ npm run admin:password -- admin รหัสผ่านใหม่
 | `GET` | `/api/admin/issues?search=&status=&page=` |
 | `PATCH` | `/api/admin/issues/:id` |
 | `GET` | `/api/admin/stats` |
+| `GET` | `/api/admin/manual/:file` (รูป/PDF ของคู่มือ) |
 
 ## โครงสร้าง
 
