@@ -75,7 +75,7 @@ export function AdminShell({ session, children }: { session: Session; children: 
               <ShieldCheck className="h-5 w-5" strokeWidth={2.25} />
             </div>
             <div>
-              <p className="text-xs text-navy-400">ASCENT CARE</p>
+              <p className="text-xs text-navy-400">ASCENT SERVICE</p>
             </div>
           </div>
           <button

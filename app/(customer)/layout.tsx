@@ -11,7 +11,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white shadow-soft">
               <ShieldCheck className="h-5 w-5" strokeWidth={2.25} />
             </div>
-            <span className="text-[15px] font-semibold text-navy-900">ASCENT CARE</span>
+            <span className="text-[15px] font-semibold text-navy-900">ASCENT SERVICE</span>
           </Link>
           <CustomerNav />
         </div>

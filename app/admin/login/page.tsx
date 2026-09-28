@@ -59,7 +59,7 @@ function LoginForm() {
             <ShieldCheck className="h-6 w-6" strokeWidth={2.25} />
           </div>
           <h1 className="text-xl font-bold text-white">ระบบจัดการรับประกันสินค้า</h1>
-          <p className="mt-1 text-sm text-navy-300">ASCENT WARRANTY</p>
+          <p className="mt-1 text-sm text-navy-300">ASCENT SERVICE</p>
         </div>
 
         <Card className="shadow-soft-lg">
