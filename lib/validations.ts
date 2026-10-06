@@ -161,6 +161,26 @@ export const startWarrantySchema = z.object({
     .optional(),
 })
 
+/** POST /api/admin/warranty-print/issue — บันทึกว่าออกใบรับประกันให้ SN เหล่านี้แล้ว */
+export const warrantyCardIssueSchema = z.object({
+  sns: z
+    .array(snSchema)
+    .min(1, 'กรุณาเลือก SN อย่างน้อย 1 รายการ')
+    .max(200, 'ออกใบรับประกันได้ครั้งละไม่เกิน 200 ใบ'),
+})
+
+/** PUT /api/admin/warranty-print/settings — ข้อความบนใบรับประกันที่แอดมินแก้ได้ */
+export const warrantyCardTextsSchema = z.object({
+  conditions: z
+    .string()
+    .trim()
+    .min(1, 'กรุณากรอกเงื่อนไขการรับประกัน')
+    .max(5000, 'เงื่อนไขการรับประกันยาวเกินไป'),
+  footnote: z.string().trim().max(1000, 'หมายเหตุท้ายใบยาวเกินไป'),
+  // ข้อมูลบริษัทมุมขวาบน บรรทัดละรายการ (บรรทัดแรก = ชื่อบริษัท)
+  company: z.string().trim().max(1000, 'ข้อมูลบริษัทยาวเกินไป'),
+})
+
 export const issueUpdateSchema = z.object({
   status: z.enum(['pending', 'in_progress', 'resolved', 'closed']),
   admin_note: z.string().trim().max(5000).optional().or(z.literal('')),

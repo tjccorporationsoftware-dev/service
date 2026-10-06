@@ -108,6 +108,28 @@ CREATE TABLE IF NOT EXISTS issue_attachments (
   FOREIGN KEY (issue_report_id) REFERENCES issue_reports(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ค่าตั้งที่แอดมินแก้ได้จากหน้าเว็บ (key/value) เช่น ข้อความเงื่อนไขบนใบรับประกัน
+-- แต่ละบริษัทมีฐานของตัวเอง จึงตั้งข้อความต่างกันได้โดยไม่ต้องแก้โค้ด
+CREATE TABLE IF NOT EXISTS app_settings (
+  setting_key VARCHAR(64) PRIMARY KEY,
+  setting_value TEXT NOT NULL,
+  updated_by INT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (updated_by) REFERENCES admins(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ประวัติการออกใบรับประกัน — 1 แถวต่อการพิมพ์ 1 ใบ (พิมพ์ซ้ำ = หลายแถว)
+-- ใช้กรอง "ออกใบแล้ว / ยังไม่ออก" และแสดงว่าออกล่าสุดเมื่อไหร่ กี่ครั้ง ในหน้าพิมพ์ใบรับประกัน
+CREATE TABLE IF NOT EXISTS warranty_card_prints (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  serial_number_id INT NOT NULL,
+  printed_by INT,
+  printed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (serial_number_id) REFERENCES serial_numbers(id) ON DELETE CASCADE,
+  FOREIGN KEY (printed_by) REFERENCES admins(id),
+  INDEX idx_serial_number (serial_number_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Audit log: ใครทำอะไรเมื่อไหร่ (generate SN, อัปเดตเคส ฯลฯ)
 CREATE TABLE IF NOT EXISTS audit_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,

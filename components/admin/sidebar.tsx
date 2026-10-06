@@ -12,6 +12,7 @@ import {
   Menu,
   MessageSquareWarning,
   Package,
+  Printer,
   QrCode,
   ScanLine,
   ShieldCheck,
@@ -26,6 +27,7 @@ const LINKS = [
   { href: '/admin/serial-numbers', label: 'SN', icon: QrCode },
   { href: '/admin/issues', label: 'คำขอรับบริการ', icon: MessageSquareWarning },
   { href: '/admin/qrcode', label: 'สร้าง QR', icon: ScanLine },
+  { href: '/admin/warranty-print', label: 'พิมพ์ใบรับประกัน', icon: Printer },
   { href: '/admin/manual', label: 'คู่มือ', icon: BookOpen },
 ]
 
@@ -40,9 +42,9 @@ export function AdminShell({ session, children }: { session: Session; children: 
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-app-canvas">
+    <div className="min-h-screen bg-app-canvas print:min-h-0">
       {/* แถบบนสำหรับจอเล็ก — เปิด sidebar แบบ overlay */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-navy-100 bg-white px-4 md:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-navy-100 bg-white px-4 md:hidden print:hidden">
         <button
           onClick={() => setOpen(true)}
           className="rounded-lg p-2 text-navy-500 transition hover:bg-navy-50"
@@ -60,12 +62,12 @@ export function AdminShell({ session, children }: { session: Session; children: 
         <button
           aria-label="ปิดเมนู"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-navy-900/40 backdrop-blur-[1px] md:hidden"
+          className="fixed inset-0 z-40 bg-navy-900/40 backdrop-blur-[1px] md:hidden print:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-navy-100 bg-white/90 shadow-soft-lg backdrop-blur-sm transition-transform duration-200 ease-out md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col print:hidden border-r border-navy-100 bg-white/90 shadow-soft-lg backdrop-blur-sm transition-transform duration-200 ease-out md:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -131,9 +133,10 @@ export function AdminShell({ session, children }: { session: Session; children: 
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-col pt-14 md:pt-0 md:pl-64">
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
-          <div className="mx-auto max-w-6xl">{children}</div>
+      {/* ตอนสั่งพิมพ์ (เช่น ใบรับประกัน) ซ่อนเมนู/แถบบน และตัดระยะขอบออก ให้เหลือแค่เนื้อหาหน้า */}
+      <div className="flex min-h-screen flex-col pt-14 md:pt-0 md:pl-64 print:block print:min-h-0 print:p-0">
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 print:p-0">
+          <div className="mx-auto max-w-6xl print:max-w-none">{children}</div>
         </main>
       </div>
     </div>

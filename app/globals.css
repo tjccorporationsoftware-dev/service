@@ -54,6 +54,14 @@ body {
   background-attachment: fixed;
 }
 
+/* ตอนพิมพ์ (ใบรับประกัน) พื้นขาวล้วน — กรณีผู้ใช้ติ๊ก "พิมพ์กราฟิกพื้นหลัง" ไว้ จะได้ไม่มีสีเทา/ไล่สีติดใต้ใบ */
+@media print {
+  body,
+  .bg-app-canvas {
+    background: #ffffff;
+  }
+}
+
 /* ตัวเลข/SN อ่านง่ายขึ้นเมื่อเรียงเป็นคอลัมน์ */
 .tabular {
   font-variant-numeric: tabular-nums;

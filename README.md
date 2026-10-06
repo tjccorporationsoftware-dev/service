@@ -46,6 +46,7 @@ npm run admin:password -- admin รหัสผ่านใหม่
 | Serial Number | `/admin/serial-numbers` | Generate แบบ batch, ค้นหา, **เริ่มระยะเวลาประกันทีละหลายรายการ**, Export CSV |
 | การลงทะเบียน | `/admin/registrations` | ตารางลงทะเบียน + filter/search |
 | เคสแจ้งปัญหา | `/admin/issues` | ดูรูป/วิดีโอที่แนบ + อัปเดตสถานะและหมายเหตุ |
+| พิมพ์ใบรับประกัน | `/admin/warranty-print` | ตาราง SN ที่ออกใบได้ + กรอง (ลงทะเบียนแล้ว / ยังไม่ลงทะเบียน / ออกใบแล้ว / ยังไม่ออก) → เลือกหลายใบ → ใบ A4 ตามแบบ ใบละหน้า → พิมพ์/บันทึก PDF · ที่อยู่/ผู้ติดต่อกรอกตอนพิมพ์ (ไม่บันทึก) · ข้อความเงื่อนไขแก้และบันทึกเป็นค่าเริ่มต้นได้ · รูปหัวกระดาษอ่านจาก `template/warranty-header.png` ซึ่งไม่อยู่ใน git |
 | คู่มือ | `/admin/manual` | คู่มือการใช้งานหลังบ้าน (รูปทีละหน้า + ดาวน์โหลด PDF) — อ่านจากโฟลเดอร์ `manual/` ซึ่งไม่อยู่ใน git ต้องคัดลอกขึ้นเซิร์ฟเวอร์เอง |
 
 ## API
@@ -77,6 +78,9 @@ npm run admin:password -- admin รหัสผ่านใหม่
 | `PATCH` | `/api/admin/issues/:id` |
 | `GET` | `/api/admin/stats` |
 | `GET` | `/api/admin/manual/:file` (รูป/PDF ของคู่มือ) |
+| `GET` | `/api/admin/warranty-print?search=&status=&page=` (SN ที่ออกใบรับประกันได้ — `status`: registered / unregistered / issued / not_issued) |
+| `POST` | `/api/admin/warranty-print/issue` — `{ sns: string[] }` บันทึกว่าออกใบแล้ว (หลังปิดหน้าต่างพิมพ์และผู้ใช้ยืนยันว่าพิมพ์แล้ว) |
+| `GET` `PUT` | `/api/admin/warranty-print/settings` — `{ conditions, footnote }` ข้อความบนใบรับประกัน |
 
 ## โครงสร้าง
 
