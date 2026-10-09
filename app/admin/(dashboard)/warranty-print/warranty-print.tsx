@@ -466,7 +466,7 @@ export function WarrantyPrint({ header }: { header: string | null }) {
                       onChange={(e) => setTexts({ ...texts, conditions: e.target.value })}
                     />
                   </Field>
-                  <Field label="ข้อมูลบริษัท (มุมขวาบน)" hint="บรรทัดละรายการ — บรรทัดแรกคือชื่อบริษัท (ตัวใหญ่กว่า)">
+                  <Field label="ข้อมูลบริษัท (มุมขวาบน)" hint="บรรทัดละรายการ — บรรทัดแรกคือชื่อบริษัท (ตัวใหญ่และหนากว่า)">
                     <Textarea
                       rows={6}
                       value={texts.company}
@@ -701,14 +701,14 @@ function WarrantySheet({
         <img src={header} alt="" className="pointer-events-none absolute top-0 left-0 z-0 w-full select-none" />
       )}
 
-      {/* ข้อมูลบริษัทมุมขวาบน — บรรทัดแรก (ชื่อบริษัท) ตัวใหญ่กว่า ตำแหน่งตามแบบ */}
+      {/* ข้อมูลบริษัทมุมขวาบน — บรรทัดแรก (ชื่อบริษัท) ตัวใหญ่และหนากว่า ตำแหน่งตามแบบ */}
       {texts?.company && (
         <div
           className="absolute z-10 whitespace-nowrap"
           style={{ left: '350pt', top: '31.4pt', fontSize: '10.8pt', lineHeight: '17.1pt' }}
         >
           {texts.company.split('\n').map((line, i) => (
-            <div key={i} style={i === 0 ? { fontSize: '12.6pt' } : undefined}>
+            <div key={i} style={i === 0 ? { fontSize: '12.6pt', fontWeight: 600 } : undefined}>
               {line}
             </div>
           ))}
